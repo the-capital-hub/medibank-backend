@@ -1,0 +1,7 @@
+{
+    "watch": ["index.ts", "schema.ts", "prisma/schema.prisma"], 
+    "ext": "ts,json", 
+    "ignore": ["node_modules/*"], 
+    "exec": "ts-node index.ts" 
+  }
+  

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "UserMaster" ALTER COLUMN "UserType" DROP NOT NULL,
+ALTER COLUMN "UserType" SET DATA TYPE TEXT;
