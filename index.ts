@@ -13,7 +13,7 @@ const prisma = new PrismaClient();
 // const redis = new Redis(process.env.REDIS_URL || "redis://127.0.0.1:6379");
 const redis = new Redis({
     host: "redis-16915.c8.us-east-1-3.ec2.redns.redis-cloud.com:16915",
-    port: 6379,
+    port: 16915,
     password: process.env.REDIS_PASSWORD, // Use an environment variable for security
   });
 
