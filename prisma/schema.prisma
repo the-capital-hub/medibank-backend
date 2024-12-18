@@ -16,6 +16,7 @@ model UserMaster {
   LastName String?
   Gender Boolean?
   MobileNo String @unique
+  DOB DateTime //mention date only
   City String?
   Address String?
   State String?

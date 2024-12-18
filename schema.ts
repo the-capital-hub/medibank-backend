@@ -89,12 +89,13 @@ const resolvers = {
       const token = jwt.sign({ userId: user.ID.toString() }, process.env.JWT_SECRET!);
 
       // Cache user data with ID as string
-      await redis.set(
-        `user:${user.ID.toString()}`,
-        JSON.stringify({ ...user, ID: user.ID.toString() }),
-        "EX",
-        3600
-      );
+      
+      // await redis.set(
+      //   `user:${user.ID.toString()}`,
+      //   JSON.stringify({ ...user, ID: user.ID.toString() }),
+      //   "EX",
+      //   3600
+      // );
 
       return { token, user: { ...user, ID: user.ID.toString() } };
     },

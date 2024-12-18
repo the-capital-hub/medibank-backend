@@ -5,9 +5,11 @@
       "module": "commonjs",
       "strict": true,
       "esModuleInterop": true,
-      "rootDir": "./"
+      "rootDir": "./",
+      "typeRoots": ["./node_modules/@types", "./src/types"],
+      "moduleResolution": "node"
     },
     "include": ["./"],
     "exclude": ["node_modules"]
-  }
+}
   
