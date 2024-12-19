@@ -4,82 +4,121 @@ import { hashPassword, comparePassword } from "../utils/bcrypt";
 import { generateToken } from "../utils/jwt";
 import { UserMaster } from "@prisma/client";
 
+// Utility to handle BigInt serialization in JSON
+function safeStringify(obj: any): string {
+  return JSON.stringify(obj, (_, value) =>
+    typeof value === "bigint" ? value.toString() : value
+  );
+}
+
+// Restore BigInt values from JSON-parsed objects
+function restoreBigInt(obj: any): any {
+  if (obj && typeof obj === "object") {
+    for (const key in obj) {
+      if (typeof obj[key] === "string" && /^\d+$/.test(obj[key])) {
+        obj[key] = BigInt(obj[key]);
+      }
+    }
+  }
+  return obj;
+}
+
 export const userService = {
+  /**
+   * Registers a new user and caches their data in Redis.
+   */
+  async registerUser(
+    {
+      EmailID,
+      Password,
+      FirstName,
+      LastName,
+      MobileNo,
+      UserType,
+    }: Partial<UserMaster>,
+    redisClient: any
+  ) {
+    if (!EmailID || !Password || !FirstName || !MobileNo || !UserType) {
+      throw new Error("Missing required fields for user registration.");
+    }
 
-    async registerUser(
-        { EmailID, Password, FirstName, LastName, MobileNo, UserType }: Partial<UserMaster>,
-        redis: any
-      ) {
-        if (!EmailID || !Password || !FirstName || !MobileNo || !UserType) {
-          throw new Error("Missing required fields for user registration.");
-        }
-    
-        const hashedPassword = await hashPassword(Password);
-    
-        const user = await prisma.userMaster.create({
-          data: {
-            EmailID,
-            Password: hashedPassword,
-            FirstName,
-            LastName,
-            MobileNo,
-            MBID: `MB${Math.random().toString().slice(2, 10)}`,
-            UserType,
-          },
-        });
-    
-        const token = generateToken({ userId: user.ID.toString() });
-    
-        // Cache user data
-        await redis.set(`user:${user.ID.toString()}`, JSON.stringify(user), "EX", 3600);
-    
-        return { token, user };
-    },
+     // Check if the email is already registered
+     const existingUser = await prisma.userMaster.findUnique({
+      where: { EmailID },
+    });
 
+    if (existingUser) {
+      throw new Error("A user with this email already exists.");
+    }
+
+    const hashedPassword = await hashPassword(Password);
+
+    const user = await prisma.userMaster.create({
+      data: {
+        EmailID,
+        Password: hashedPassword,
+        FirstName,
+        LastName,
+        MobileNo,
+        MBID: `MB${Math.random().toString().slice(2, 10)}`,
+        UserType,
+      },
+    });
+
+    const token = generateToken({ userId: user.ID.toString() });
+
+    // Cache user data in Redis
+    await redisClient.set(
+      `user:${user.ID.toString()}`,
+      safeStringify(user),
+      "EX",
+      3600
+    );
+
+    return { token, user };
+  },
+
+  /**
+   * Logs in a user, validates credentials, and returns a JWT token.
+   */
   async loginUser(
     { EmailID, Password }: { EmailID: string; Password: string },
-    redis: any,
+    redisClient: any,
     res: any
   ) {
-    // Validate required fields
-    if (!EmailID) {
-      throw new Error("EmailID is required.");
-    }
-    if (!Password) {
-      throw new Error("Password is required.");
+    if (!EmailID || !Password) {
+      throw new Error("EmailID and Password are required.");
     }
 
     const cacheKey = `user:${EmailID}`;
     let user: UserMaster | null;
 
-    const cachedUser = await redis.get(cacheKey);
+    const cachedUser = await redisClient.get(cacheKey);
 
     if (cachedUser) {
-      // If Redis data exists, parse it as a valid JSON object
-      user = JSON.parse(cachedUser) as UserMaster;
+      user = restoreBigInt(JSON.parse(cachedUser)) as UserMaster;
     } else {
-      // Otherwise, fetch user from the database
       user = await prisma.userMaster.findUnique({ where: { EmailID } });
       if (!user) {
-        throw new Error("User not found");
+        throw new Error("User not found.");
       }
-      // Cache the user data as a string in Redis
-      await redis.set(cacheKey, JSON.stringify(user), "EX", 3600); // Cache for 1 hour
+      await redisClient.set(cacheKey, safeStringify(user), "EX", 3600); // Cache for 1 hour
     }
 
-    // Validate the user's password
     const isValid = await comparePassword(Password, user.Password);
     if (!isValid) {
-      throw new Error("Invalid credentials");
+      throw new Error("Invalid credentials.");
     }
 
-    // Generate a JWT token
     const token = generateToken({ userId: user.ID.toString() });
     res.cookie("token", token, { httpOnly: true });
 
     return { token, user };
   },
 
+  /**
+   * Retrieves a user by their ID, using Redis for caching.
+   */
   async getUserById(userId: string) {
     const cacheKey = `user:${userId}`;
     let user: UserMaster | null;
@@ -87,14 +126,11 @@ export const userService = {
     const cachedUser = await redis.get(cacheKey);
 
     if (cachedUser) {
-      // If Redis data exists, parse it as a valid JSON object
-      user = JSON.parse(cachedUser) as UserMaster;
+      user = restoreBigInt(JSON.parse(cachedUser)) as UserMaster;
     } else {
-      // Otherwise, fetch user from the database
       user = await prisma.userMaster.findUnique({ where: { ID: BigInt(userId) } });
       if (user) {
-        // Cache the user data as a string in Redis
-        await redis.set(cacheKey, JSON.stringify(user), "EX", 3600); // Cache for 1 hour
+        await redis.set(cacheKey, safeStringify(user), "EX", 3600); // Cache for 1 hour
       }
     }
 
