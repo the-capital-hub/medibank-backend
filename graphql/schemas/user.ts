@@ -31,8 +31,19 @@ export const userTypeDefs = gql`
       LastName: String
       MobileNo: String!
       UserType: String!
-    ): AuthPayload
+    ): String
 
+    sendRegistrationOtp(
+      EmailID: String!
+      MobileNo: String!
+    ): String
+
+    verifyAndRegisterUser(
+      EmailID: String!
+      MobileNo: String!
+      OTP: String!
+    ): AuthPayload
+    
     login(EmailID: String!, Password: String!): AuthPayload
   }
 `;
