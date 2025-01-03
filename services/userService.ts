@@ -25,10 +25,6 @@ function restoreBigInt(obj: any): any {
 }
 
 export const userService = {
-  /**
-   * Registers a new user by sending OTPs to email and mobile.
-   * Temporarily stores user details in Redis until OTP verification.
-   */
   async registerUser(
     { EmailID, Password, FirstName, LastName, MobileNo, UserType }: any,
     redisClient: any
@@ -53,9 +49,8 @@ export const userService = {
     return { message: "OTP sent to email and mobile. Please verify." };
   },
 
-  /**
-   * Verifies OTP and creates a new user in the database.
-   */
+  // Verifies OTP and creates a new user in the database.
+
   async verifyAndCreateUser(email: string, mobile: string, otp: string) {
     // Verify OTPs
     await otpService.verifyOtp(email, otp);
@@ -93,9 +88,8 @@ export const userService = {
   },
 
 
-  /**
-   * Logs in a user, validates credentials, and returns a JWT token.
-   */
+  //Logs in a user, validates credentials, and returns a JWT token.
+   
   async loginUser(
     { EmailID, Password }: { EmailID: string; Password: string },
     redisClient: any,
