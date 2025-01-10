@@ -1,8 +1,9 @@
-
 import { gql } from "apollo-server-express";
+import { GraphQLJSON } from "graphql-scalars";
 
 export const userTypeDefs = gql`
   scalar BigInt
+  scalar JSON
 
   type User {
     ID: BigInt!
@@ -19,8 +20,16 @@ export const userTypeDefs = gql`
     user: User!
   }
 
+  
+
   type Query {
     me: User
+  }
+  
+  type StandardResponse {
+    status: Boolean!
+    data: JSON
+    message: String
   }
 
   type Mutation {
@@ -31,19 +40,23 @@ export const userTypeDefs = gql`
       LastName: String
       MobileNo: String!
       UserType: String!
-    ): String
+    ): StandardResponse
 
     sendRegistrationOtp(
       EmailID: String!
       MobileNo: String!
-    ): String
+    ): StandardResponse
 
     verifyAndRegisterUser(
       EmailID: String!
       MobileNo: String!
       OTP: String!
     ): AuthPayload
-    
+
     login(EmailID: String!, Password: String!): AuthPayload
   }
 `;
+
+export const resolvers = {
+  JSON: GraphQLJSON,
+};
