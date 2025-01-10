@@ -1,7 +1,9 @@
 import redis from "../redis/redisClient";
 import twilio from "twilio";
 import nodemailer from "nodemailer";
+import dotenv from "dotenv";
 
+dotenv.config();
 const OTP_EXPIRATION_TIME = 300; // 5 minutes
 
 // Initialize Twilio client
