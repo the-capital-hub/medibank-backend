@@ -12,14 +12,13 @@ model UserMaster {
   MBID String @unique
   Password String
   EmailID String @unique
-  FirstName String
-  LastName String?
-  Gender Boolean?
-  MobileNo String @unique
-  DOB DateTime? //mention date only
-  City String?
+  fullname String
+  sex Boolean?
+  mobile_num String @unique
+  date_of_birth DateTime? //mention date only
+  city String?
   Address String?
-  State String?
+  state String?
   UserType String?
   CreatedAt DateTime @default(now())
   UpdatedOn DateTime @updatedAt

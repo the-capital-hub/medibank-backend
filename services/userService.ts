@@ -26,10 +26,10 @@ function restoreBigInt(obj: any): any {
 
 export const userService = {
   async registerUser(
-    { EmailID, Password, FirstName, LastName, MobileNo, UserType }: any,
+    { EmailID, Password, fullname , mobile_num, UserType }: any,
     redisClient: any
   ) {
-    if (!EmailID || !Password || !FirstName || !MobileNo || !UserType) {
+    if (!EmailID || !Password || !fullname || !mobile_num || !UserType) {
       throw new Error("Missing required fields for user registration.");
     }
   
@@ -40,10 +40,10 @@ export const userService = {
     }
   
     // Generate and send OTP
-    await otpService.generateAndSendOtp(EmailID, MobileNo);
+    await otpService.generateAndSendOtp(EmailID, mobile_num);
   
     // Temporarily store user details in Redis
-    const userData = { EmailID, Password, FirstName, LastName, MobileNo, UserType };
+    const userData = { EmailID, Password, fullname , mobile_num, UserType };
     await redisClient.set(`user:temp:${EmailID}`, JSON.stringify(userData), "EX", 600); // Expire in 10 minutes
   
     return { message: "OTP sent to email and mobile. Please verify." };
@@ -70,9 +70,8 @@ export const userService = {
       data: {
         EmailID: userData.EmailID,
         Password: hashedPassword,
-        FirstName: userData.FirstName,
-        LastName: userData.LastName,
-        MobileNo: userData.MobileNo,
+        fullname: userData.fullname,
+        mobile_num: userData.mobile_num,
         MBID: `MB${Math.random().toString().slice(2, 10)}`,
         UserType: userData.UserType,
       },

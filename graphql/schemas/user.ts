@@ -8,19 +8,20 @@ export const userTypeDefs = gql`
   type User {
     ID: BigInt!
     MBID: String!
+    fullname: String!
     EmailID: String!
-    FirstName: String!
-    LastName: String
-    Gender: Boolean
-    MobileNo: String!
+    mobile_num: String!
+    city: String!
+    state: String!
+    date_of_birth: String!
+    sex: String!
+    Password: String
   }
 
   type AuthPayload {
     token: String!
     user: User!
   }
-
-  
 
   type Query {
     me: User
@@ -34,22 +35,25 @@ export const userTypeDefs = gql`
 
   type Mutation {
     register(
+      fullname: String!
       EmailID: String!
+      mobile_num: String!
+      city: String!
+      state: String!
+      date_of_birth: String!
+      sex: String!
       Password: String!
-      FirstName: String!
-      LastName: String
-      MobileNo: String!
       UserType: String!
     ): StandardResponse
 
     sendRegistrationOtp(
       EmailID: String!
-      MobileNo: String!
+      mobile_num: String!
     ): StandardResponse
 
     verifyAndRegisterUser(
       EmailID: String!
-      MobileNo: String!
+      mobile_num: String!
       OTP: String!
     ): AuthPayload
 
