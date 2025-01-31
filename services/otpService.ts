@@ -72,7 +72,6 @@ export const otpService = {
         this.sendMobileOtp(mobile, otp),
       ]);
 
-      console.log(`OTP sent successfully to email: ${email} and mobile: ${mobile}`);
     } catch (error) {
       console.error("Error generating or sending OTP:", error);
       throw new Error("Failed to send OTP. Please try again.");
@@ -98,7 +97,7 @@ export const otpService = {
 
       // OTP is valid, remove it from Redis
       await redis.del(`otp:${emailOrMobile}`);
-      console.log(`OTP verified and deleted for ${emailOrMobile}`);
+
       return true;
     } catch (error) {
       console.error(`OTP verification failed for ${emailOrMobile}:`, error);

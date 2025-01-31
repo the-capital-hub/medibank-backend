@@ -52,26 +52,21 @@ export const userService = {
   // Verifies OTP and creates a new user in the database.
 
   async verifyAndCreateUser(email: string, mobile_num: string, otp: string) {
-    console.log("Verifying OTP for email:", email, "and mobile:", mobile_num);
-    // Verify OTPs
+    
     await otpService.verifyOtp(email, otp);
-
-     // Verify OTP for mobile only if it's defined
     if (mobile_num) {
       await otpService.verifyOtp(mobile_num, otp);
-    } else {
-      console.warn("Skipping mobile OTP verification as mobile is undefined.");
     }
-  
+
     // Retrieve temporary user data from Redis
     const userDataJson = await redis.get(`user:temp:${email}`);
     if (!userDataJson) {
       throw new Error("User data expired. Please register again.");
     }
-  
+
     const userData = JSON.parse(userDataJson);
     const hashedPassword = await hashPassword(userData.Password);
-  
+
     // Create user in the database
     const user = await prisma.userMaster.create({
       data: {
@@ -83,21 +78,23 @@ export const userService = {
         UserType: userData.UserType,
       },
     });
-  
-    // Generate token
-    const token = generateToken({ userId: user.ID.toString() });
 
-     // Debugging log
-    console.log("Generated Token:", token);
+    const token = generateToken({ userId: user.ID.toString() });  // Convert BigInt to String
 
     if (!token) {
       throw new Error("Token generation failed.");
     }
-  
-    // Remove temporary user data from Redis
+
     await redis.del(`user:temp:${email}`);
-    // return { status: true, data: { token: token, user: user }, message: "User registered successfully" };
-    return { token, user };
+
+    // Convert BigInt fields to strings before returning
+    return {
+      token,
+      user: {
+        ...user,
+        ID: user.ID.toString()  // Convert BigInt to String
+      }
+    };
   },
 
 

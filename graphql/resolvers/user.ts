@@ -54,24 +54,39 @@ export const userResolvers = {
 
     verifyAndRegisterUser: async (_: unknown, { EmailID, mobile_num, OTP }: any, { redis }: Context) => {
       try {
-        console.log("Resolver received mobile:", mobile_num); // Debugging log
-
-        const user = await userService.verifyAndCreateUser(EmailID, mobile_num, OTP);
+            
+        const userData = await userService.verifyAndCreateUser(EmailID, mobile_num, OTP);
         
-        if (!user || !user.token) {
-          console.error("Token or user missing in response:",  user );
+        if (!userData || !userData.token) {
+          console.error("❌ Token or user missing in response:", userData);
           throw new Error("Token generation failed.");
         }
-
-        console.log("Final Response to GraphQL:", { user }); // Debugging log
-        return { token: user.token, user: user } ;
-
+    
+        // Convert BigInt fields to strings (if any exist)
+        const sanitizedUser = {
+          ...userData.user,
+          ID: userData.user.ID.toString()  // Convert BigInt to String
+        };
+    
+        return {
+          status: true,
+          data: { 
+            token: userData.token,
+            user: sanitizedUser  // Return sanitized user with string ID
+          },
+          message: "User registered successfully"
+        };
+    
       } catch (error) {
         const errorMessage = getErrorMessage(error);
-        console.error("Error in verifyAndRegisterUser resolver:", errorMessage);
-        return formatResponse(false, null, errorMessage);
+        console.error("❌ Error in verifyAndRegisterUser resolver:", errorMessage);
+    
+        return { status: false, data: null, message: errorMessage };
       }
     },
+    
+    
+    
 
     login: async (_: unknown, args: any, { redis, res }: Context) => {
       try {

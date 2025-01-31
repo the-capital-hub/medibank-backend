@@ -55,7 +55,7 @@ export const userTypeDefs = gql`
       EmailID: String!
       mobile_num: String!
       OTP: String!
-    ): AuthPayload
+    ): StandardResponse
 
     login(EmailID: String!, Password: String!): AuthPayload
   }
