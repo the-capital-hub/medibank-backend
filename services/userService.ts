@@ -51,10 +51,17 @@ export const userService = {
 
   // Verifies OTP and creates a new user in the database.
 
-  async verifyAndCreateUser(email: string, mobile: string, otp: string) {
+  async verifyAndCreateUser(email: string, mobile_num: string, otp: string) {
+    console.log("Verifying OTP for email:", email, "and mobile:", mobile_num);
     // Verify OTPs
     await otpService.verifyOtp(email, otp);
-    await otpService.verifyOtp(mobile, otp);
+
+     // Verify OTP for mobile only if it's defined
+    if (mobile_num) {
+      await otpService.verifyOtp(mobile_num, otp);
+    } else {
+      console.warn("Skipping mobile OTP verification as mobile is undefined.");
+    }
   
     // Retrieve temporary user data from Redis
     const userDataJson = await redis.get(`user:temp:${email}`);
@@ -79,10 +86,17 @@ export const userService = {
   
     // Generate token
     const token = generateToken({ userId: user.ID.toString() });
+
+     // Debugging log
+    console.log("Generated Token:", token);
+
+    if (!token) {
+      throw new Error("Token generation failed.");
+    }
   
     // Remove temporary user data from Redis
     await redis.del(`user:temp:${email}`);
-  
+    // return { status: true, data: { token: token, user: user }, message: "User registered successfully" };
     return { token, user };
   },
 

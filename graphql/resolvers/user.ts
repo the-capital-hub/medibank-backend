@@ -52,10 +52,20 @@ export const userResolvers = {
       }
     },
 
-    verifyAndRegisterUser: async (_: unknown, { EmailID, MobileNo, OTP }: any, { redis }: Context) => {
+    verifyAndRegisterUser: async (_: unknown, { EmailID, mobile_num, OTP }: any, { redis }: Context) => {
       try {
-        const user = await userService.verifyAndCreateUser(EmailID, MobileNo, OTP);
-        return formatResponse(true, user, "User registered successfully");
+        console.log("Resolver received mobile:", mobile_num); // Debugging log
+
+        const user = await userService.verifyAndCreateUser(EmailID, mobile_num, OTP);
+        
+        if (!user || !user.token) {
+          console.error("Token or user missing in response:",  user );
+          throw new Error("Token generation failed.");
+        }
+
+        console.log("Final Response to GraphQL:", { user }); // Debugging log
+        return { token: user.token, user: user } ;
+
       } catch (error) {
         const errorMessage = getErrorMessage(error);
         console.error("Error in verifyAndRegisterUser resolver:", errorMessage);
