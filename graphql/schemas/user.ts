@@ -18,6 +18,12 @@ export const userTypeDefs = gql`
     Password: String
   }
 
+  type AuthResponse {
+  status: Boolean!
+  data: AuthPayload
+  message: String
+  }
+
   type AuthPayload {
     token: String
     user: User!
@@ -57,7 +63,7 @@ export const userTypeDefs = gql`
       OTP: String!
     ): StandardResponse
 
-    login(EmailID: String!, Password: String!): AuthPayload
+    login(EmailID: String!, Password: String!): AuthResponse
   }
 `;
 

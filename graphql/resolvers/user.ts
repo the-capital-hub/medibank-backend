@@ -91,11 +91,31 @@ export const userResolvers = {
     login: async (_: unknown, args: any, { redis, res }: Context) => {
       try {
         const result = await userService.loginUser(args, redis, res);
-        return formatResponse(true, result, "Login successful");
+        if(!result || !result.token){
+          throw new Error("Token Generation Failed!")
+        }
+
+        const sanitizedUser =  {
+          ...result.user,
+          ID: result.user.ID.toString()
+        }
+
+        return {
+          status: true,
+          data: {
+            token: result.token,
+            user: sanitizedUser
+          },
+          message: "Login Succesful"
+        }
       } catch (error) {
         const errorMessage = getErrorMessage(error);
         console.error("Error in login resolver:", errorMessage);
-        return formatResponse(false, null, errorMessage);
+        return {
+          status: false,
+          data: null,
+          message: errorMessage
+        };
       }
     },
   },
