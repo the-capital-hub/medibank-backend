@@ -21,7 +21,7 @@ export const userTypeDefs = gql`
   }
 
   type AuthPayload {
-    token: String!
+    token: String
     user: User!
   }
 
@@ -59,10 +59,10 @@ export const userTypeDefs = gql`
       EmailID: String!
       mobile_num: String!
       OTP: String!
-    ): AuthPayload
+    ): StandardResponse
 
     uploadProfileAfterVerification(userId: String!, file: Upload!): StandardResponse
-    login(EmailID: String!, Password: String!): AuthPayload
+    login(EmailID: String!, Password: String!): AuthResponse
 
   }
 `;

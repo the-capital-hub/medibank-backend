@@ -64,58 +64,70 @@ export const userResolvers = {
       }
     },
 
-    verifyAndRegisterUser: async (
-      _: unknown,
-      { EmailID, MobileNo, OTP }: any,
-      { redis }: Context
-    ) => {
+    verifyAndRegisterUser: async (_: unknown, { EmailID, mobile_num, OTP }: any, { redis }: Context) => {
       try {
-        const user = await userService.verifyAndCreateUser(
-          EmailID,
-          MobileNo,
-          OTP
-        );
-        return formatResponse(true, user, "User registered successfully");
-      } catch (error) {
-        const errorMessage = getErrorMessage(error);
-        console.error("Error in verifyAndRegisterUser resolver:", errorMessage);
-        return formatResponse(false, null, errorMessage);
-      }
-    },
-
-    uploadProfileAfterVerification: async (
-      _: unknown,
-      { file, token }: any
-    ) => {
-      try {
-        const uploadResult = await profileUploadService.uploadProfilePicture(
-          file,
-          token
-        );
-
-        return formatResponse(
-          true,
-          {
-            imageUrl: uploadResult.imageUrl,
-            presignedUrl: uploadResult.presignedUrl,
+            
+        const userData = await userService.verifyAndCreateUser(EmailID, mobile_num, OTP);
+        
+        if (!userData || !userData.token) {
+          console.error("❌ Token or user missing in response:", userData);
+          throw new Error("Token generation failed.");
+        }
+    
+        // Convert BigInt fields to strings (if any exist)
+        const sanitizedUser = {
+          ...userData.user,
+          ID: userData.user.ID.toString()  // Convert BigInt to String
+        };
+    
+        return {
+          status: true,
+          data: { 
+            token: userData.token,
+            user: sanitizedUser  // Return sanitized user with string ID
           },
-          "Profile picture uploaded successfully"
-        );
+          message: "User registered successfully"
+        };
+    
       } catch (error) {
         const errorMessage = getErrorMessage(error);
-        console.error("Error in uploadProfileAfterVerification:", errorMessage);
-        return formatResponse(false, null, errorMessage);
+        console.error("❌ Error in verifyAndRegisterUser resolver:", errorMessage);
+    
+        return { status: false, data: null, message: errorMessage };
       }
     },
+    
+    
+    
 
     login: async (_: unknown, args: any, { redis, res }: Context) => {
       try {
         const result = await userService.loginUser(args, redis, res);
-        return formatResponse(true, result, "Login successful");
+        if(!result || !result.token){
+          throw new Error("Token Generation Failed!")
+        }
+
+        const sanitizedUser =  {
+          ...result.user,
+          ID: result.user.ID.toString()
+        }
+
+        return {
+          status: true,
+          data: {
+            token: result.token,
+            user: sanitizedUser
+          },
+          message: "Login Succesful"
+        }
       } catch (error) {
         const errorMessage = getErrorMessage(error);
         console.error("Error in login resolver:", errorMessage);
-        return formatResponse(false, null, errorMessage);
+        return {
+          status: false,
+          data: null,
+          message: errorMessage
+        };
       }
     },
   },

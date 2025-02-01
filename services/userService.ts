@@ -51,20 +51,22 @@ export const userService = {
 
   // Verifies OTP and creates a new user in the database.
 
-  async verifyAndCreateUser(email: string, mobile: string, otp: string) {
-    // Verify OTPs
+  async verifyAndCreateUser(email: string, mobile_num: string, otp: string) {
+    
     await otpService.verifyOtp(email, otp);
-    await otpService.verifyOtp(mobile, otp);
-  
+    if (mobile_num) {
+      await otpService.verifyOtp(mobile_num, otp);
+    }
+
     // Retrieve temporary user data from Redis
     const userDataJson = await redis.get(`user:temp:${email}`);
     if (!userDataJson) {
       throw new Error("User data expired. Please register again.");
     }
-  
+
     const userData = JSON.parse(userDataJson);
     const hashedPassword = await hashPassword(userData.Password);
-  
+
     // Create user in the database
     const user = await prisma.userMaster.create({
       data: {
@@ -76,15 +78,23 @@ export const userService = {
         UserType: userData.UserType,
       },
     });
-  
-    // Generate token
-    const token = generateToken({ userId: user.ID.toString() });
-    console.log("Generated token:", token);  
-  
-    // Remove temporary user data from Redis
+
+    const token = generateToken({ userId: user.ID.toString() });  // Convert BigInt to String
+
+    if (!token) {
+      throw new Error("Token generation failed.");
+    }
+
     await redis.del(`user:temp:${email}`);
-  
-    return { token, user, };
+
+    // Convert BigInt fields to strings before returning
+    return {
+      token,
+      user: {
+        ...user,
+        ID: user.ID.toString()  // Convert BigInt to String
+      }
+    };
   },
 
 
