@@ -4,6 +4,7 @@ import { GraphQLJSON } from "graphql-scalars";
 export const userTypeDefs = gql`
   scalar BigInt
   scalar JSON
+  scalar Upload
 
   type User {
     ID: BigInt!
@@ -16,6 +17,7 @@ export const userTypeDefs = gql`
     date_of_birth: String!
     sex: String!
     Password: String
+    profilePicture: String
   }
 
   type AuthPayload {
@@ -26,11 +28,16 @@ export const userTypeDefs = gql`
   type Query {
     me: User
   }
-  
+
   type StandardResponse {
     status: Boolean!
     data: JSON
     message: String
+  }
+
+  type PresignedUrlResponse {
+    uploadUrl: String!
+    imageUrl: String!
   }
 
   type Mutation {
@@ -46,10 +53,7 @@ export const userTypeDefs = gql`
       UserType: String!
     ): StandardResponse
 
-    sendRegistrationOtp(
-      EmailID: String!
-      mobile_num: String!
-    ): StandardResponse
+    sendRegistrationOtp(EmailID: String!, mobile_num: String!): StandardResponse
 
     verifyAndRegisterUser(
       EmailID: String!
@@ -57,7 +61,9 @@ export const userTypeDefs = gql`
       OTP: String!
     ): AuthPayload
 
+    uploadProfileAfterVerification(userId: String!, file: Upload!): StandardResponse
     login(EmailID: String!, Password: String!): AuthPayload
+
   }
 `;
 

@@ -1,7 +1,12 @@
+import { profileUploadService } from "../../services/ProfilePicService";
 import { userService } from "../../services/userService";
 import { Context } from "../../types/context";
 
-function formatResponse(status: boolean, data: any = null, message: string = "") {
+function formatResponse(
+  status: boolean,
+  data: any = null,
+  message: string = ""
+) {
   return { status, data, message };
 }
 
@@ -41,9 +46,16 @@ export const userResolvers = {
       }
     },
 
-    sendRegistrationOtp: async (_: unknown, { EmailID, MobileNo }: any, { redis }: Context) => {
+    sendRegistrationOtp: async (
+      _: unknown,
+      { EmailID, MobileNo }: any,
+      { redis }: Context
+    ) => {
       try {
-        const result = await userService.registerUser({ EmailID, MobileNo }, redis);
+        const result = await userService.registerUser(
+          { EmailID, MobileNo },
+          redis
+        );
         return formatResponse(true, null, result.message);
       } catch (error) {
         const errorMessage = getErrorMessage(error);
@@ -52,13 +64,46 @@ export const userResolvers = {
       }
     },
 
-    verifyAndRegisterUser: async (_: unknown, { EmailID, MobileNo, OTP }: any, { redis }: Context) => {
+    verifyAndRegisterUser: async (
+      _: unknown,
+      { EmailID, MobileNo, OTP }: any,
+      { redis }: Context
+    ) => {
       try {
-        const user = await userService.verifyAndCreateUser(EmailID, MobileNo, OTP);
+        const user = await userService.verifyAndCreateUser(
+          EmailID,
+          MobileNo,
+          OTP
+        );
         return formatResponse(true, user, "User registered successfully");
       } catch (error) {
         const errorMessage = getErrorMessage(error);
         console.error("Error in verifyAndRegisterUser resolver:", errorMessage);
+        return formatResponse(false, null, errorMessage);
+      }
+    },
+
+    uploadProfileAfterVerification: async (
+      _: unknown,
+      { file, token }: any
+    ) => {
+      try {
+        const uploadResult = await profileUploadService.uploadProfilePicture(
+          file,
+          token
+        );
+
+        return formatResponse(
+          true,
+          {
+            imageUrl: uploadResult.imageUrl,
+            presignedUrl: uploadResult.presignedUrl,
+          },
+          "Profile picture uploaded successfully"
+        );
+      } catch (error) {
+        const errorMessage = getErrorMessage(error);
+        console.error("Error in uploadProfileAfterVerification:", errorMessage);
         return formatResponse(false, null, errorMessage);
       }
     },

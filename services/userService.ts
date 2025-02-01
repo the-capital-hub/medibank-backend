@@ -79,11 +79,12 @@ export const userService = {
   
     // Generate token
     const token = generateToken({ userId: user.ID.toString() });
+    console.log("Generated token:", token);  
   
     // Remove temporary user data from Redis
     await redis.del(`user:temp:${email}`);
   
-    return { token, user };
+    return { token, user, };
   },
 
 
