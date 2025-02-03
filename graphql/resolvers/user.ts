@@ -61,10 +61,10 @@ export const userResolvers = {
       }
     },
 
-    verifyAndRegisterUser: async (_: unknown, { EmailID, mobile_num, OTP }: any, { redis }: Context) => {
+    verifyAndRegisterUser: async (_: unknown, { EmailID, mobile_num, emailOtp, mobileOtp }: any, { redis }: Context) => {
       try {
         
-        const userData = await userService.verifyAndCreateUser(EmailID, mobile_num, OTP);
+        const userData = await userService.verifyAndCreateUser(EmailID, mobile_num, emailOtp, mobileOtp);
         
         if (!userData || !userData.token) {
           console.error("❌ Token or user missing in response:", userData);
@@ -137,7 +137,7 @@ export const userResolvers = {
     
         return {
           status: true,
-          Response: {
+          data: {
             imageUrl: uploadResult.imageUrl,
             presignedUrl: uploadResult.presignedUrl,
           },

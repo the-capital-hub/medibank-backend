@@ -43,7 +43,7 @@ type UploadResult {
 
   type UploadResponse {
     status: Boolean!
-    Response: UploadResult
+    data: UploadResult
     message: String
   }
 
@@ -62,10 +62,11 @@ type UploadResult {
 
     sendRegistrationOtp(EmailID: String!, mobile_num: String!): StandardResponse
 
-    verifyAndRegisterUser(
+      verifyAndRegisterUser(
       EmailID: String!
       mobile_num: String!
-      OTP: String!
+      emailOtp: String!
+      mobileOtp: String!
     ): StandardResponse
 
     uploadProfileAfterVerification(file:Upload!): UploadResponse
