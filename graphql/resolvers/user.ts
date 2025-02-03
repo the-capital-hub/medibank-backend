@@ -1,4 +1,4 @@
-import { FileUpload, profileUploadService } from "../../services/ProfilePicService";
+import { profileUploadService } from "../../services/ProfilePicService";
 import { userService } from "../../services/userService";
 import { Context } from "../../types/context";
 
@@ -95,41 +95,27 @@ export const userResolvers = {
     },
     uploadProfileAfterVerification: async (
       _: unknown,
-      { file }: { file: Promise<FileUpload> },
+      { base64Data }: { base64Data: string },  // Changed from file to base64Data
       { req }: Context
     ) => {
+      console.log(base64Data)
       console.log('Starting uploadProfileAfterVerification mutation');
     
       try {
         const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
-      
+    
         if (!token) {
           throw new Error('Token is required');
         }
     
-        // Wait for the file promise to resolve
-        const uploadedFile = await file;
-        console.log('Resolved upload file:', uploadedFile);
-    
-        // Extract file properties
-        const { filename, mimetype, encoding, createReadStream } = uploadedFile.file || uploadedFile;
-    
-        // Validate file properties
-        if (!filename) {
-          throw new Error('File name is missing');
-        }
-        if (!mimetype) {
-          throw new Error('Mimetype is required');
-        }
-        if (!createReadStream || typeof createReadStream !== 'function') {
-          throw new Error('Invalid file stream or stream not provided');
+        if (!base64Data) {
+          throw new Error('Base64 data is required');
         }
     
-        console.log('Processing file:', { filename, mimetype, encoding });
+        console.log('Processing base64 data:', base64Data);
     
-        const processedFile = { filename, mimetype, encoding, createReadStream };
-    
-        const uploadResult = await profileUploadService.uploadProfilePicture(processedFile, token);
+        // Call the profile upload service with base64 data
+        const uploadResult = await profileUploadService.uploadProfilePicture(token, base64Data);
     
         if (!uploadResult.success) {
           throw new Error(uploadResult.message);
@@ -137,7 +123,7 @@ export const userResolvers = {
     
         return {
           status: true,
-          Response: {
+          data: {
             imageUrl: uploadResult.imageUrl,
             presignedUrl: uploadResult.presignedUrl,
           },
@@ -153,6 +139,7 @@ export const userResolvers = {
         };
       }
     },
+    
     
     
     login: async (_: unknown, args: any, { redis, res }: Context) => {

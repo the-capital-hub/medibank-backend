@@ -43,7 +43,7 @@ type UploadResult {
 
   type UploadResponse {
     status: Boolean!
-    Response: UploadResult
+    data: UploadResult
     message: String
   }
 
@@ -67,8 +67,7 @@ type UploadResult {
       mobile_num: String!
       OTP: String!
     ): StandardResponse
-
-    uploadProfileAfterVerification(file:Upload!): UploadResponse
+uploadProfileAfterVerification(base64Data: String!): UploadResponse
     login(EmailID: String!, Password: String!): AuthPayload
 
   }

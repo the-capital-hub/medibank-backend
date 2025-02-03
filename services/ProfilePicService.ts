@@ -6,6 +6,7 @@ import prisma from "../models/prismaClient";
 import { verifyToken } from "../utils/jwt";
 import { v4 as uuidv4 } from "uuid";
 import { Readable } from "stream";
+import { Buffer } from "buffer"; // Required for handling base64 encoding
 
 console.log("AWS Region:", process.env.AWS_REGION);
 console.log("AWS Bucket:", process.env.AWS_S3_BUCKET);
@@ -33,34 +34,32 @@ const s3Config: S3ClientConfig = {
 const s3Client = new S3Client(s3Config);
 const BUCKET_NAME = process.env.AWS_S3_BUCKET;
 
-export interface FileUpload {
-  file?: {
-    filename: string;
-    mimetype: string;
-    encoding: string;
-    createReadStream: () => Readable;
-  };
-  filename?: string;
-  mimetype?: string;
-  encoding?: string;
-  createReadStream?: () => Readable;
-}
-
 export const profileUploadService = {
-  async uploadProfilePicture(file: FileUpload, token: string) {
+  async uploadProfilePicture(base64Data: string, token: string) {
     try {
-      if (!file) {
-        throw new Error("File is missing");
+      if (!base64Data) {
+        throw new Error("Base64 data is missing");
       }
-      console.log("file", file);
 
-      const { filename, mimetype, createReadStream } = file.file || file;
+      let fileStream: Readable;
+      let filename: string;
+      let mimetype: string;
 
-      if (!filename) throw new Error("File name is missing");
-      if (!mimetype) throw new Error("File mime type is missing");
-      if (!createReadStream || typeof createReadStream !== "function") {
-        throw new Error("File stream is invalid");
-      }
+      // Extract file extension and mime type from the base64 data
+      const matches = base64Data.match(/^data:(.+);base64,(.*)$/);
+      if (!matches) throw new Error("Invalid base64 data format");
+
+      mimetype = matches[1];
+      const base64Image = matches[2];
+
+      // Convert base64 to buffer
+      const buffer = Buffer.from(base64Image, "base64");
+
+      // Generate a unique filename (optional: you can infer it from the file)
+      filename = `profile-${uuidv4()}`;
+      
+      // Create a readable stream from the buffer
+      fileStream = Readable.from(buffer);
 
       console.log("Processing file:", { filename, mimetype });
 
@@ -81,18 +80,16 @@ export const profileUploadService = {
 
       const fileExtension = filename.split(".").pop()?.toLowerCase();
       if (!fileExtension) throw new Error("Invalid file extension");
-      // create a unique file name for the uploaded file
-      const s3FileName = `profile-pictures/${
-        decoded.userId
-      }/${uuidv4()}.${fileExtension}`;
-      // create a readable stream from the file
-      const fileStream = createReadStream();
+
+      // Create a unique file name for the uploaded file
+      const s3FileName = `profile-pictures/${decoded.userId}/${uuidv4()}.${fileExtension}`;
 
       fileStream.on("error", (err) => {
         console.error("Error reading file stream:", err);
         throw new Error("Error reading file stream");
       });
-      // use the Upload class from @aws-sdk/lib-storage
+
+      // Use the Upload class from @aws-sdk/lib-storage
       const upload = new Upload({
         client: s3Client,
         params: {
@@ -103,18 +100,21 @@ export const profileUploadService = {
           ACL: "private" as ObjectCannedACL,
         },
       });
-      // wait for the upload to complete
+
+      // Wait for the upload to complete
       await upload.done();
 
       const getObjectParams = { Bucket: BUCKET_NAME, Key: s3FileName };
-      // get a signed url for the uploaded file
+      // Get a signed URL for the uploaded file
       const presignedUrl = await getSignedUrl(
         s3Client,
         new GetObjectCommand(getObjectParams)
       );
-      // creates a presigned url for the uploaded file
+
+      // Create a public URL for the uploaded image
       const s3ImageUrl = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3FileName}`;
-      // upload the profile picture in the database
+
+      // Update the profile picture in the database
       await prisma.userMaster.update({
         where: { ID: userId },
         data: { profile_Picture: s3ImageUrl },

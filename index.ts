@@ -4,7 +4,7 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { typeDefs, resolvers } from "./graphql";
 import prisma from "./models/prismaClient";
-import { graphqlUploadExpress } from 'graphql-upload-ts'; 
+import bodyParser from "body-parser";
 import redis from "./redis/redisClient";
 import { authMiddleware } from "./middlewares/authMiddleware";
 
@@ -13,10 +13,7 @@ dotenv.config();
 const app: Application = express();
 app.use(cookieParser());
 app.use(authMiddleware);
-app.use(graphqlUploadExpress({
-  maxFileSize: 10000000, // 10 MB
-  maxFiles: 1
-}));
+app.use(bodyParser.json({ limit: '100mb' })); 
 
 
 const server = new ApolloServer({
