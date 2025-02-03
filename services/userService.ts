@@ -133,6 +133,7 @@ export const userService = {
 
     // Generate and set token
     const token = generateToken({ userId: user.ID.toString() });
+    console.log(token)
     res.cookie("token", token, { httpOnly: true });
 
     return { token, user };

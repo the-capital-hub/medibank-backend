@@ -1,12 +1,9 @@
-import { profileUploadService } from "../../services/ProfilePicService";
+import { FileUpload, profileUploadService } from "../../services/ProfilePicService";
 import { userService } from "../../services/userService";
 import { Context } from "../../types/context";
 
-function formatResponse(
-  status: boolean,
-  data: any = null,
-  message: string = ""
-) {
+
+function formatResponse(status: boolean, data: any = null, message: string = "") {
   return { status, data, message };
 }
 
@@ -66,7 +63,7 @@ export const userResolvers = {
 
     verifyAndRegisterUser: async (_: unknown, { EmailID, mobile_num, OTP }: any, { redis }: Context) => {
       try {
-            
+        
         const userData = await userService.verifyAndCreateUser(EmailID, mobile_num, OTP);
         
         if (!userData || !userData.token) {
@@ -96,10 +93,68 @@ export const userResolvers = {
         return { status: false, data: null, message: errorMessage };
       }
     },
+    uploadProfileAfterVerification: async (
+      _: unknown,
+      { file }: { file: Promise<FileUpload> },
+      { req }: Context
+    ) => {
+      console.log('Starting uploadProfileAfterVerification mutation');
+    
+      try {
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+      
+        if (!token) {
+          throw new Error('Token is required');
+        }
+    
+        // Wait for the file promise to resolve
+        const uploadedFile = await file;
+        console.log('Resolved upload file:', uploadedFile);
+    
+        // Extract file properties
+        const { filename, mimetype, encoding, createReadStream } = uploadedFile.file || uploadedFile;
+    
+        // Validate file properties
+        if (!filename) {
+          throw new Error('File name is missing');
+        }
+        if (!mimetype) {
+          throw new Error('Mimetype is required');
+        }
+        if (!createReadStream || typeof createReadStream !== 'function') {
+          throw new Error('Invalid file stream or stream not provided');
+        }
+    
+        console.log('Processing file:', { filename, mimetype, encoding });
+    
+        const processedFile = { filename, mimetype, encoding, createReadStream };
+    
+        const uploadResult = await profileUploadService.uploadProfilePicture(processedFile, token);
+    
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.message);
+        }
+    
+        return {
+          status: true,
+          Response: {
+            imageUrl: uploadResult.imageUrl,
+            presignedUrl: uploadResult.presignedUrl,
+          },
+          message: 'Profile picture uploaded successfully',
+        };
+    
+      } catch (error) {
+        console.error('Error in uploadProfileAfterVerification:', error);
+        return {
+          status: false,
+          data: null,
+          message: error instanceof Error ? error.message : 'Error uploading profile picture',
+        };
+      }
+    },
     
     
-    
-
     login: async (_: unknown, args: any, { redis, res }: Context) => {
       try {
         const result = await userService.loginUser(args, redis, res);
@@ -118,7 +173,7 @@ export const userResolvers = {
             token: result.token,
             user: sanitizedUser
           },
-          message: "Login Succesful"
+          message: "Login Successful"
         }
       } catch (error) {
         const errorMessage = getErrorMessage(error);

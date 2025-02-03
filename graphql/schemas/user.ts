@@ -1,5 +1,7 @@
 import { gql } from "apollo-server-express";
 import { GraphQLJSON } from "graphql-scalars";
+import { GraphQLUpload } from "graphql-upload-ts";
+
 
 export const userTypeDefs = gql`
   scalar BigInt
@@ -34,10 +36,15 @@ export const userTypeDefs = gql`
     data: JSON
     message: String
   }
+type UploadResult {
+  imageUrl: String
+  presignedUrl: String
+}
 
-  type PresignedUrlResponse {
-    uploadUrl: String!
-    imageUrl: String!
+  type UploadResponse {
+    status: Boolean!
+    Response: UploadResult
+    message: String
   }
 
   type Mutation {
@@ -61,12 +68,13 @@ export const userTypeDefs = gql`
       OTP: String!
     ): StandardResponse
 
-    uploadProfileAfterVerification(userId: String!, file: Upload!): StandardResponse
-    login(EmailID: String!, Password: String!): AuthResponse
+    uploadProfileAfterVerification(file:Upload!): UploadResponse
+    login(EmailID: String!, Password: String!): AuthPayload
 
   }
 `;
 
 export const resolvers = {
   JSON: GraphQLJSON,
+  Upload: GraphQLUpload,
 };

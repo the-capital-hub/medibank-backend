@@ -60,6 +60,7 @@ export const otpService = {
   async generateAndSendOtp(email: string, mobile: string) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP
     console.log("Generated OTP:", otp); // Debugging log
+    
 
     try {
       // Store OTP in Redis with expiration
