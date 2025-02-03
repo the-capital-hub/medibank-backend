@@ -58,19 +58,20 @@ export const otpService = {
    * Generate and send OTP to both email and mobile
    */
   async generateAndSendOtp(email: string, mobile: string) {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP
-    console.log("Generated OTP:", otp); // Debugging log
-    
+    const emailOtp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP
+    console.log("Generated OTP for email:", emailOtp); // Debugging log
+    const mobileOtp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP
+    console.log("Generated OTP for mobile:", mobileOtp); // Debugging log
 
     try {
       // Store OTP in Redis with expiration
-      await redis.set(`otp:${email}`, otp, "EX", OTP_EXPIRATION_TIME);
-      await redis.set(`otp:${mobile}`, otp, "EX", OTP_EXPIRATION_TIME);
+      await redis.set(`otp:${email}`, emailOtp, "EX", OTP_EXPIRATION_TIME);
+      await redis.set(`otp:${mobile}`, mobileOtp, "EX", OTP_EXPIRATION_TIME);
 
       // Send OTP via email and SMS
       await Promise.all([
-        this.sendEmailOtp(email, otp),
-        this.sendMobileOtp(mobile, otp),
+        this.sendEmailOtp(email, emailOtp),
+        this.sendMobileOtp(mobile, mobileOtp),
       ]);
 
     } catch (error) {
@@ -82,27 +83,52 @@ export const otpService = {
   },
 
   /**
-   * Verify OTP for email or mobile
+   * Verify OTP for email 
    */
-  async verifyOtp(emailOrMobile: string, otp: string) {
+  async verifyEmailOtp(email: string, emailOtp: string) {
     try {
-      const storedOtp = await redis.get(`otp:${emailOrMobile}`);
-      console.log(`Stored OTP for ${emailOrMobile}:`, storedOtp); // Debugging log
-
-      if (!storedOtp) {
-        throw new Error("OTP expired or invalid");
+      const storedEmailOtp = await redis.get(`otp:${email}`);
+      console.log(`Stored OTP for ${email}:`, storedEmailOtp); // Debugging log
+  
+      if (!storedEmailOtp) {
+        throw new Error("Email OTP expired or invalid");
       }
-      if (storedOtp !== otp) {
-        throw new Error("Invalid OTP");
+      if (storedEmailOtp !== emailOtp) {
+        throw new Error("Invalid email OTP");
       }
-
+  
       // OTP is valid, remove it from Redis
-      await redis.del(`otp:${emailOrMobile}`);
-
-      return true;
+      await redis.del(`otp:${email}`);
+  
+      return true; // Email OTP is valid
     } catch (error) {
-      console.error(`OTP verification failed for ${emailOrMobile}:`, error);
-      throw error;
+      console.error(`Email OTP verification failed for ${email}:`, error);
+      throw error; // Rethrow the error if verification fails
     }
   },
+
+  // Verify OTP for mobile
+  async verifyMobileOtp(mobile: string, mobileOtp: string) {
+    try {
+      const storedMobileOtp = await redis.get(`otp:${mobile}`);
+      console.log(`Stored OTP for ${mobile}:`, storedMobileOtp); // Debugging log
+  
+      if (!storedMobileOtp) {
+        throw new Error("Mobile OTP expired or invalid");
+      }
+      if (storedMobileOtp !== mobileOtp) {
+        throw new Error("Invalid mobile OTP");
+      }
+  
+      // OTP is valid, remove it from Redis
+      await redis.del(`otp:${mobile}`);
+  
+      return true; // Mobile OTP is valid
+    } catch (error) {
+      console.error(`Mobile OTP verification failed for ${mobile}:`, error);
+      throw error; // Rethrow the error if verification fails
+    }
+  }
+  
+  
 };

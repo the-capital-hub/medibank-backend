@@ -62,10 +62,11 @@ type UploadResult {
 
     sendRegistrationOtp(EmailID: String!, mobile_num: String!): StandardResponse
 
-    verifyAndRegisterUser(
+      verifyAndRegisterUser(
       EmailID: String!
       mobile_num: String!
-      OTP: String!
+      emailOtp: String!
+      mobileOtp: String!
     ): StandardResponse
 uploadProfileAfterVerification(base64Data: String!): UploadResponse
     login(EmailID: String!, Password: String!): AuthPayload
