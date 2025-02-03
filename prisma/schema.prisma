@@ -20,6 +20,7 @@ model UserMaster {
   Address String?
   state String?
   UserType String?
+  profile_Picture String?
   CreatedAt DateTime @default(now())
   UpdatedOn DateTime @updatedAt
 }

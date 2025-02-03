@@ -5,6 +5,11 @@ import { Request, Response } from "express";
 export interface Context {
   prisma: PrismaClient;
   redis: Redis;
-  req: Request & { user?: string };
+  req: Request & { 
+    user?: string; 
+    headers: {
+      authorization?: string;
+    };
+  };
   res: Response;
 }

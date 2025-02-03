@@ -1,9 +1,12 @@
 import { gql } from "apollo-server-express";
 import { GraphQLJSON } from "graphql-scalars";
+import { GraphQLUpload } from "graphql-upload-ts";
+
 
 export const userTypeDefs = gql`
   scalar BigInt
   scalar JSON
+  scalar Upload
 
   type User {
     ID: BigInt!
@@ -16,12 +19,7 @@ export const userTypeDefs = gql`
     date_of_birth: String!
     sex: String!
     Password: String
-  }
-
-  type AuthResponse {
-  status: Boolean!
-  data: AuthPayload
-  message: String
+    profilePicture: String
   }
 
   type AuthPayload {
@@ -32,10 +30,20 @@ export const userTypeDefs = gql`
   type Query {
     me: User
   }
-  
+
   type StandardResponse {
     status: Boolean!
     data: JSON
+    message: String
+  }
+type UploadResult {
+  imageUrl: String
+  presignedUrl: String
+}
+
+  type UploadResponse {
+    status: Boolean!
+    data: UploadResult
     message: String
   }
 
@@ -52,21 +60,22 @@ export const userTypeDefs = gql`
       UserType: String!
     ): StandardResponse
 
-    sendRegistrationOtp(
+    sendRegistrationOtp(EmailID: String!, mobile_num: String!): StandardResponse
+
+      verifyAndRegisterUser(
       EmailID: String!
       mobile_num: String!
+      emailOtp: String!
+      mobileOtp: String!
     ): StandardResponse
 
-    verifyAndRegisterUser(
-      EmailID: String!
-      mobile_num: String!
-      OTP: String!
-    ): StandardResponse
+    uploadProfileAfterVerification(file:Upload!): UploadResponse
+    login(EmailID: String!, Password: String!): AuthPayload
 
-    login(EmailID: String!, Password: String!): AuthResponse
   }
 `;
 
 export const resolvers = {
   JSON: GraphQLJSON,
+  Upload: GraphQLUpload,
 };

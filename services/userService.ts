@@ -51,11 +51,11 @@ export const userService = {
 
   // Verifies OTP and creates a new user in the database.
 
-  async verifyAndCreateUser(email: string, mobile_num: string, otp: string) {
+  async verifyAndCreateUser(email: string, mobile_num: string, emailOtp: string, mobileOtp: string) {
     
-    await otpService.verifyOtp(email, otp);
+    await otpService.verifyEmailOtp(email, emailOtp);
     if (mobile_num) {
-      await otpService.verifyOtp(mobile_num, otp);
+      await otpService.verifyMobileOtp(mobile_num, mobileOtp);
     }
 
     // Retrieve temporary user data from Redis
@@ -133,6 +133,7 @@ export const userService = {
 
     // Generate and set token
     const token = generateToken({ userId: user.ID.toString() });
+    console.log(token)
     res.cookie("token", token, { httpOnly: true });
 
     return { token, user };
