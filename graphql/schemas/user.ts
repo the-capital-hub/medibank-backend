@@ -1,6 +1,6 @@
 import { gql } from "apollo-server-express";
 import { GraphQLJSON } from "graphql-scalars";
-import { GraphQLUpload } from "graphql-upload-ts";
+
 
 
 export const userTypeDefs = gql`
@@ -76,5 +76,4 @@ uploadProfileAfterVerification(base64Data: String!): UploadResponse
 
 export const resolvers = {
   JSON: GraphQLJSON,
-  Upload: GraphQLUpload,
 };

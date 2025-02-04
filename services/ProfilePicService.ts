@@ -1,146 +1,161 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { S3ClientConfig, ObjectCannedACL } from "@aws-sdk/client-s3";
 import prisma from "../models/prismaClient";
 import { verifyToken } from "../utils/jwt";
 import { v4 as uuidv4 } from "uuid";
-import { Readable } from "stream";
-import { Buffer } from "buffer"; // Required for handling base64 encoding
+import { Buffer } from "buffer";
 
-console.log("AWS Region:", process.env.AWS_REGION);
-console.log("AWS Bucket:", process.env.AWS_S3_BUCKET);
-console.log("AWS Access Key exists:", !!process.env.AWS_ACCESS_KEY_ID);
-console.log("AWS Secret Key exists:", !!process.env.AWS_SECRET_ACCESS_KEY);
-
-if (
-  !process.env.AWS_ACCESS_KEY_ID ||
-  !process.env.AWS_SECRET_ACCESS_KEY ||
-  !process.env.AWS_REGION
-) {
-  throw new Error(
-    "AWS credentials are not properly configured in environment variables"
-  );
-}
-
-const s3Config: S3ClientConfig = {
+const s3Client = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
   },
+});
+
+const BUCKET_NAME = process.env.AWS_S3_BUCKET;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
+
+const getExtensionFromMimetype = (mime: string) => {
+  const extensions: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif'
+  };
+  return extensions[mime] || 'jpg';
 };
 
-const s3Client = new S3Client(s3Config);
-const BUCKET_NAME = process.env.AWS_S3_BUCKET;
+const parseBase64Image = (base64Data: string) => {
+  // Check if it's a data URL
+  const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+  
+  if (matches && matches.length === 3) {
+    return {
+      mimeType: matches[1],
+      buffer: Buffer.from(matches[2], 'base64')
+    };
+  }
+  
+  // If it's just base64 without data URL prefix
+  try {
+    return {
+      mimeType: null,
+      buffer: Buffer.from(base64Data, 'base64')
+    };
+  } catch (error) {
+    throw new Error('Invalid base64 data');
+  }
+};
+
+const detectMimeType = (buffer: Buffer): string => {
+  const signatures = {
+    'ffd8ff': 'image/jpeg',
+    '89504e47': 'image/png',
+    '47494638': 'image/gif'
+  };
+
+  const hex = buffer.toString('hex', 0, 4);
+  
+  for (const [signature, mimeType] of Object.entries(signatures)) {
+    if (hex.startsWith(signature)) {
+      return mimeType;
+    }
+  }
+  
+  return 'image/jpeg'; // default fallback
+};
+
+const generatePresignedUrl = async (key: string): Promise<string> => {
+  const params = {
+    Bucket: BUCKET_NAME,
+    Key: key,
+  };
+  // Set expiry to 7 days
+  return await getSignedUrl(s3Client, new GetObjectCommand(params), { expiresIn: 7 * 24 * 60 * 60 });
+};
 
 export const profileUploadService = {
   async uploadProfilePicture(base64Data: string, token: string) {
     try {
-      if (!base64Data) {
-        throw new Error("Base64 data is missing");
-      }
-
-      let fileStream: Readable;
-      let filename: string;
-      let mimetype: string;
-
-      // Extract file extension and mime type from the base64 data
-      const matches = base64Data.match(/^data:(.+);base64,(.*)$/);
-      if (!matches) throw new Error("Invalid base64 data format");
-
-      mimetype = matches[1];
-      const base64Image = matches[2];
-
-      // Convert base64 to buffer
-      const buffer = Buffer.from(base64Image, "base64");
-
-      // Generate a unique filename (optional: you can infer it from the file)
-      filename = `profile-${uuidv4()}`;
-      
-      // Create a readable stream from the buffer
-      fileStream = Readable.from(buffer);
-
-      console.log("Processing file:", { filename, mimetype });
-
+      if (!base64Data) throw new Error("Base64 data is missing");
       if (!token) throw new Error("Token is required");
-
-      const decoded = verifyToken(token);
-      if (!decoded || !decoded.userId) {
-        throw new Error("Invalid or expired token");
-      }
-
-      const userId = BigInt(decoded.userId);
-      const user = await prisma.userMaster.findUnique({
-        where: { ID: userId },
-      });
-
-      if (!user) throw new Error("User not found");
       if (!BUCKET_NAME) throw new Error("AWS S3 bucket name is not configured");
 
-      const fileExtension = filename.split(".").pop()?.toLowerCase();
-      if (!fileExtension) throw new Error("Invalid file extension");
+      // Verify token and get user
+      const decoded = verifyToken(token);
+      if (!decoded?.userId) throw new Error("Invalid token");
 
-      // Create a unique file name for the uploaded file
+      const user = await prisma.userMaster.findUnique({ where: { ID: BigInt(decoded.userId) } });
+      if (!user) throw new Error("User not found");
+
+      // Process base64 data
+      const { buffer, mimeType: detectedMimeType } = parseBase64Image(base64Data);
+      
+      // Validate file size
+      if (buffer.length > MAX_FILE_SIZE) {
+        throw new Error('File size exceeds maximum limit of 5MB');
+      }
+
+      // Determine MIME type
+      const mimetype = detectedMimeType || detectMimeType(buffer);
+      
+      if (!ALLOWED_MIME_TYPES.includes(mimetype)) {
+        throw new Error('Invalid file type. Only JPEG, PNG, and GIF are allowed');
+      }
+
+      const fileExtension = getExtensionFromMimetype(mimetype);
       const s3FileName = `profile-pictures/${decoded.userId}/${uuidv4()}.${fileExtension}`;
 
-      fileStream.on("error", (err) => {
-        console.error("Error reading file stream:", err);
-        throw new Error("Error reading file stream");
-      });
-
-      // Use the Upload class from @aws-sdk/lib-storage
+      // Upload to S3
       const upload = new Upload({
         client: s3Client,
         params: {
           Bucket: BUCKET_NAME,
           Key: s3FileName,
-          Body: fileStream,
+          Body: buffer,
           ContentType: mimetype,
-          ACL: "private" as ObjectCannedACL,
+          CacheControl: 'public, max-age=86400', // 1 day cache
+          ContentDisposition: 'inline',
         },
       });
 
-      // Wait for the upload to complete
       await upload.done();
 
-      const getObjectParams = { Bucket: BUCKET_NAME, Key: s3FileName };
-      // Get a signed URL for the uploaded file
-      const presignedUrl = await getSignedUrl(
-        s3Client,
-        new GetObjectCommand(getObjectParams)
-      );
-
-      // Create a public URL for the uploaded image
+      // Generate URLs with proper encoding
+      const presignedUrl = await generatePresignedUrl(s3FileName);
       const s3ImageUrl = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3FileName}`;
 
-      // Update the profile picture in the database
+      // Store the S3 key in the database instead of the full URL
       await prisma.userMaster.update({
-        where: { ID: userId },
-        data: { profile_Picture: s3ImageUrl },
+        where: { ID: BigInt(decoded.userId) },
+        data: {
+          profile_Picture: presignedUrl // Store just the S3 key
+         
+        },
       });
 
+      // Return success response
       return {
         success: true,
         token,
         user,
-        imageUrl: s3ImageUrl,
-        presignedUrl,
+        imageUrl: presignedUrl, // Return presigned URL for immediate use
+        s3url: s3ImageUrl, // Return S3 key for future reference
         message: "Profile picture uploaded successfully",
       };
+
     } catch (error) {
       console.error("Error in uploadProfilePicture:", error);
       return {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to upload profile picture",
+        message: error instanceof Error ? error.message : "Failed to upload profile picture",
         token,
         user: null,
         imageUrl: null,
-        presignedUrl: null,
+        s3Key: null,
       };
     }
-  },
+  }
 };

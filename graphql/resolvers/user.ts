@@ -93,17 +93,16 @@ export const userResolvers = {
         return { status: false, data: null, message: errorMessage };
       }
     },
-    uploadProfileAfterVerification: async (
+    uploadProfileAfterVerification : async (
       _: unknown,
-      { base64Data }: { base64Data: string },  // Changed from file to base64Data
+      { base64Data }: { base64Data: string },
       { req }: Context
     ) => {
-      console.log(base64Data)
       console.log('Starting uploadProfileAfterVerification mutation');
-    
+      
       try {
-        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
-    
+        // Get token from cookies or authorization header
+        const token = req.headers.authorization?.split(' ')[1];
         if (!token) {
           throw new Error('Token is required');
         }
@@ -111,27 +110,29 @@ export const userResolvers = {
         if (!base64Data) {
           throw new Error('Base64 data is required');
         }
+  
+        
+        console.log('Processing base64 data:', base64Data.substring(0, 50) + '...');  // Log only the start of base64 for debugging
     
-        console.log('Processing base64 data:', base64Data);
-    
-        // Call the profile upload service with base64 data
-        const uploadResult = await profileUploadService.uploadProfilePicture(token, base64Data);
+        // Fix: Pass parameters in correct order (base64Data, token) as expected by the service
+        const uploadResult = await profileUploadService.uploadProfilePicture(base64Data, token);
     
         if (!uploadResult.success) {
-          throw new Error(uploadResult.message);
+          throw new Error(uploadResult.message || 'Upload failed');
         }
     
         return {
           status: true,
           data: {
-            imageUrl: uploadResult.imageUrl,
-            presignedUrl: uploadResult.presignedUrl,
+            imageUrl: uploadResult.s3url,
+            presignedUrl: uploadResult.imageUrl,
           },
           message: 'Profile picture uploaded successfully',
         };
     
       } catch (error) {
         console.error('Error in uploadProfileAfterVerification:', error);
+        
         return {
           status: false,
           data: null,
