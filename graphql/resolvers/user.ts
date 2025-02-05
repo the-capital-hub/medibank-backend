@@ -1,4 +1,4 @@
-import { FileUpload, profileUploadService } from "../../services/ProfilePicService";
+import { profileUploadService } from "../../services/ProfilePicService";
 import { userService } from "../../services/userService";
 import { Context } from "../../types/context";
 
@@ -93,59 +93,46 @@ export const userResolvers = {
         return { status: false, data: null, message: errorMessage };
       }
     },
-    uploadProfileAfterVerification: async (
+    uploadProfileAfterVerification : async (
       _: unknown,
-      { file }: { file: Promise<FileUpload> },
+      { base64Data }: { base64Data: string },
       { req }: Context
     ) => {
       console.log('Starting uploadProfileAfterVerification mutation');
-    
-      try {
-        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
       
+      try {
+        // Get token from cookies or authorization header
+        const token = req.headers.authorization?.split(' ')[1];
         if (!token) {
           throw new Error('Token is required');
         }
     
-        // Wait for the file promise to resolve
-        const uploadedFile = await file;
-        console.log('Resolved upload file:', uploadedFile);
-    
-        // Extract file properties
-        const { filename, mimetype, encoding, createReadStream } = uploadedFile.file || uploadedFile;
-    
-        // Validate file properties
-        if (!filename) {
-          throw new Error('File name is missing');
+        if (!base64Data) {
+          throw new Error('Base64 data is required');
         }
-        if (!mimetype) {
-          throw new Error('Mimetype is required');
-        }
-        if (!createReadStream || typeof createReadStream !== 'function') {
-          throw new Error('Invalid file stream or stream not provided');
-        }
+  
+        
+        console.log('Processing base64 data:', base64Data.substring(0, 50) + '...');  // Log only the start of base64 for debugging
     
-        console.log('Processing file:', { filename, mimetype, encoding });
-    
-        const processedFile = { filename, mimetype, encoding, createReadStream };
-    
-        const uploadResult = await profileUploadService.uploadProfilePicture(processedFile, token);
+        // Fix: Pass parameters in correct order (base64Data, token) as expected by the service
+        const uploadResult = await profileUploadService.uploadProfilePicture(base64Data, token);
     
         if (!uploadResult.success) {
-          throw new Error(uploadResult.message);
+          throw new Error(uploadResult.message || 'Upload failed');
         }
     
         return {
           status: true,
           data: {
-            imageUrl: uploadResult.imageUrl,
-            presignedUrl: uploadResult.presignedUrl,
+            imageUrl: uploadResult.s3url,
+            presignedUrl: uploadResult.imageUrl,
           },
           message: 'Profile picture uploaded successfully',
         };
     
       } catch (error) {
         console.error('Error in uploadProfileAfterVerification:', error);
+        
         return {
           status: false,
           data: null,
@@ -153,6 +140,7 @@ export const userResolvers = {
         };
       }
     },
+    
     
     
     login: async (_: unknown, args: any, { redis, res }: Context) => {

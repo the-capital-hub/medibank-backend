@@ -1,6 +1,6 @@
 import { gql } from "apollo-server-express";
 import { GraphQLJSON } from "graphql-scalars";
-import { GraphQLUpload } from "graphql-upload-ts";
+
 
 
 export const userTypeDefs = gql`
@@ -68,8 +68,7 @@ type UploadResult {
       emailOtp: String!
       mobileOtp: String!
     ): StandardResponse
-
-    uploadProfileAfterVerification(file:Upload!): UploadResponse
+uploadProfileAfterVerification(base64Data: String!): UploadResponse
     login(EmailID: String!, Password: String!): AuthPayload
 
   }
@@ -77,5 +76,4 @@ type UploadResult {
 
 export const resolvers = {
   JSON: GraphQLJSON,
-  Upload: GraphQLUpload,
 };
