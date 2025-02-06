@@ -1,8 +1,6 @@
 import { gql } from "apollo-server-express";
 import { GraphQLJSON } from "graphql-scalars";
 
-
-
 export const userTypeDefs = gql`
   scalar BigInt
   scalar JSON
@@ -22,10 +20,12 @@ export const userTypeDefs = gql`
     profilePicture: String
   }
 
-  type AuthPayload {
-    token: String
-    user: User!
-  }
+ type AuthPayload {
+  user: User!
+  status: Boolean
+  data: JSON
+  message: String
+}
 
   type Query {
     me: User
@@ -65,11 +65,11 @@ type UploadResult {
       verifyAndRegisterUser(
       EmailID: String!
       mobile_num: String!
-      emailOtp: String!
+      emailOtp: String
       mobileOtp: String!
     ): StandardResponse
-uploadProfileAfterVerification(base64Data: String!): UploadResponse
-    login(EmailID: String!, Password: String!): AuthPayload
+uploadProfileAfterVerification(base64Data: String): UploadResponse
+    login(EmailOrMobile: String!, Password: String!): AuthPayload
 
   }
 `;
