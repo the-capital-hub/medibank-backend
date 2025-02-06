@@ -12,7 +12,6 @@ CREATE TABLE "UserMaster" (
     "Address" TEXT,
     "State" TEXT,
     "UserType" BIGINT NOT NULL,
-    "profile_Picture" TEXT,
     "CreatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "UpdatedOn" TIMESTAMP(3) NOT NULL,
 

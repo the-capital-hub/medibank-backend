@@ -141,35 +141,43 @@ export const userResolvers = {
     
     
     
-    login: async (_: unknown, args: any, { redis, res }: Context) => {
-      try {
-        const result = await userService.loginUser(args, redis, res);
-        if(!result || !result.token){
-          throw new Error("Token Generation Failed!")
+       login: async (_: unknown, { EmailOrMobile, Password }: any, { redis, res }: Context) => {
+        try {
+          const result = await userService.loginUser(
+            { 
+              identifier: EmailOrMobile, 
+              Password 
+            }, 
+            redis, 
+            res
+          );
+      
+          if (!result || !result.token) {
+            throw new Error("Token Generation Failed!");
+          }
+      
+          const sanitizedUser = {
+            ...result.user,
+            ID: result.user.ID.toString()
+          };
+      
+          return {
+            status: true,
+            data: {
+              token: result.token,
+              user: sanitizedUser
+            },
+            message: "Login Successful"
+          };
+        } catch (error) {
+          const errorMessage = getErrorMessage(error);
+          console.error("Error in login resolver:", errorMessage);
+          return {
+            status: false,
+            data: null,
+            message: errorMessage
+          };
         }
-
-        const sanitizedUser =  {
-          ...result.user,
-          ID: result.user.ID.toString()
-        }
-
-        return {
-          status: true,
-          data: {
-            token: result.token,
-            user: sanitizedUser
-          },
-          message: "Login Successful"
-        }
-      } catch (error) {
-        const errorMessage = getErrorMessage(error);
-        console.error("Error in login resolver:", errorMessage);
-        return {
-          status: false,
-          data: null,
-          message: errorMessage
-        };
-      }
-    },
+      },
   },
 };
