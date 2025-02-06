@@ -68,7 +68,7 @@ type UploadResult {
       emailOtp: String!
       mobileOtp: String!
     ): StandardResponse
-uploadProfileAfterVerification(base64Data: String!): UploadResponse
+uploadProfileAfterVerification(base64Data: String): UploadResponse
     login(EmailID: String!, Password: String!): AuthPayload
 
   }

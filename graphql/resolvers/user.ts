@@ -93,53 +93,51 @@ export const userResolvers = {
         return { status: false, data: null, message: errorMessage };
       }
     },
-    uploadProfileAfterVerification : async (
-      _: unknown,
-      { base64Data }: { base64Data: string },
-      { req }: Context
-    ) => {
-      console.log('Starting uploadProfileAfterVerification mutation');
-      
-      try {
-        // Get token from cookies or authorization header
-        const token = req.headers.authorization?.split(' ')[1];
-        if (!token) {
-          throw new Error('Token is required');
-        }
-    
-        if (!base64Data) {
-          throw new Error('Base64 data is required');
-        }
-  
-        
-        console.log('Processing base64 data:', base64Data.substring(0, 50) + '...');  // Log only the start of base64 for debugging
-    
-        // Fix: Pass parameters in correct order (base64Data, token) as expected by the service
-        const uploadResult = await profileUploadService.uploadProfilePicture(base64Data, token);
-    
-        if (!uploadResult.success) {
-          throw new Error(uploadResult.message || 'Upload failed');
-        }
-    
-        return {
-          status: true,
-          data: {
-            imageUrl: uploadResult.s3url,
-            presignedUrl: uploadResult.imageUrl,
-          },
-          message: 'Profile picture uploaded successfully',
-        };
-    
-      } catch (error) {
-        console.error('Error in uploadProfileAfterVerification:', error);
-        
-        return {
-          status: false,
-          data: null,
-          message: error instanceof Error ? error.message : 'Error uploading profile picture',
-        };
-      }
-    },
+    uploadProfileAfterVerification: async (
+         _: unknown,
+         { base64Data }: { base64Data: string },
+         { req }: Context
+       ) => {
+         console.log('Starting uploadProfileAfterVerification mutation');
+         
+         try {
+           const token = req.headers.authorization?.split(' ')[1];
+           if (!token) {
+             throw new Error('Token is required');
+           }
+       
+           if (!base64Data) {
+             throw new Error('Base64 data is required');
+           }
+           
+           console.log('Processing base64 data:', base64Data.substring(0, 50) + '...');
+       
+           const result = await profileUploadService.uploadProfileAfterVerification(base64Data, token);
+       
+           if (!result.success) {
+             throw new Error(result.message || 'Upload failed');
+           }
+       
+           return {
+             status: true,
+             data: {
+               S3Url: result.s3url,
+               imageUrl: result.imageUrl,
+               isUpdate: result.isUpdate
+             },
+             message: result.message,
+           };
+       
+         } catch (error) {
+           console.error('Error in uploadProfileAfterVerification:', error);
+           
+           return {
+             status: false,
+             data: null,
+             message: error instanceof Error ? error.message : 'Error processing profile picture',
+           };
+         }
+       },
     
     
     
