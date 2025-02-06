@@ -38,7 +38,6 @@ export const userTypeDefs = gql`
   }
 type UploadResult {
   imageUrl: String
-  presignedUrl: String
 }
 
   type UploadResponse {
