@@ -12,14 +12,15 @@ const BUCKET_NAME = process.env.AWS_S3_BUCKET;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
 
+
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
+  region: process.env.AWS_REGION || "ap-south-1",
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
   },
 });
-
+console.log(s3Client);
 const getExtensionFromMimetype = (mime: string) => {
   const extensions: Record<string, string> = {
     'image/jpeg': 'jpg',
