@@ -95,10 +95,9 @@ export const userResolvers = {
     },
     uploadProfileAfterVerification: async (
          _: unknown,
-         { base64Data }: { base64Data: string },
+         { base64Data }: { base64Data: string | null},
          { req }: Context
        ) => {
-         console.log('Starting uploadProfileAfterVerification mutation');
          
          try {
            const token = req.headers.authorization?.split(' ')[1];
@@ -106,11 +105,6 @@ export const userResolvers = {
              throw new Error('Token is required');
            }
        
-           if (!base64Data) {
-             throw new Error('Base64 data is required');
-           }
-           
-           console.log('Processing base64 data:', base64Data.substring(0, 50) + '...');
        
            const result = await profileUploadService.uploadProfileAfterVerification(base64Data, token);
        
@@ -121,7 +115,6 @@ export const userResolvers = {
            return {
              status: true,
              data: {
-               S3Url: result.s3url,
                imageUrl: result.imageUrl,
                isUpdate: result.isUpdate
              },
