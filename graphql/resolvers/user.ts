@@ -116,7 +116,6 @@ export const userResolvers = {
              status: true,
              data: {
                imageUrl: result.imageUrl,
-               isUpdate: result.isUpdate
              },
              message: result.message,
            };
