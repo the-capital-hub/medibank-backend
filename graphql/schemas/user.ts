@@ -36,13 +36,10 @@ export const userTypeDefs = gql`
     data: JSON
     message: String
   }
-type UploadResult {
-  imageUrl: String
-}
 
   type UploadResponse {
     status: Boolean!
-    data: UploadResult
+    data: JSON
     message: String
   }
 
