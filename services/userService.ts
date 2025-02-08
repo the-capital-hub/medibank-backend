@@ -166,49 +166,86 @@ const dateOfBirthWithTimestamp = `${date_of_birth}T12:00:00Z`;
     res: any
   ) {
     if (!identifier || !Password) {
-      throw new Error("Identifier (Email/Mobile) and Password are required.");
+      throw new Error("Identifier and Password are required.");
     }
   
-    // Simple mobile number normalization - only add +91 to 10-digit numbers
     const normalizeMobileNumber = (number: string): string => {
       const digits = number.replace(/\D/g, '');
       return digits.length === 10 ? `+91${digits}` : number;
     };
   
-    // Check if identifier is a 10-digit number
     const isMobile = /^\d{10}$/.test(identifier);
+    const normalizedIdentifier = isMobile ? normalizeMobileNumber(identifier) : identifier;
     
     const whereClause = isMobile 
-      ? { mobile_num: normalizeMobileNumber(identifier) }
-      : { EmailID: identifier };
-  
-    let user: UserMaster | null;
-    const cacheKey = `user:${isMobile ? normalizeMobileNumber(identifier) : identifier}`;
-  
-    // Check Redis cache for user data
+      ? { mobile_num: normalizedIdentifier }
+      : { EmailID: normalizedIdentifier };
+    
+    let user;
+    const cacheKey = `user:${normalizedIdentifier}`;
+    const CACHE_EXPIRY = 3600; // 5 minutes expiry
+
+    // Helper function to serialize user data
+    const serializeUser = (userData: any) => {
+      return {
+        ...userData,
+        ID: userData.ID.toString(),
+        created_at: userData.created_at?.toISOString(),
+        updated_at: userData.updated_at?.toISOString(),
+        date_of_birth: userData.date_of_birth?.toISOString()
+      };
+    };
+
+    // Try to get user from cache first
     const cachedUser = await redisClient.get(cacheKey);
+    
     if (cachedUser) {
-      user = restoreBigInt(JSON.parse(cachedUser)) as UserMaster;
-    } else {
-      // Fetch user from the database if not cached
-      user = await prisma.userMaster.findUnique({ where: whereClause });
-      if (!user) {
+      user = JSON.parse(cachedUser);
+      
+      // Verify if cached user still exists in DB
+      const dbUser = await prisma.userMaster.findUnique({
+        where: { ID: BigInt(user.ID) }
+      });
+
+      if (!dbUser) {
+        await redisClient.del(cacheKey);
         throw new Error("User not found.");
       }
-      await redisClient.set(cacheKey, safeStringify(user), "EX", 3600); // Cache for 1 hour
+      
+      // Update cache if DB data is different
+      const serializedDbUser = serializeUser(dbUser);
+      if (JSON.stringify(serializedDbUser) !== cachedUser) {
+        user = serializedDbUser;
+        await redisClient.set(cacheKey, JSON.stringify(serializedDbUser), "EX", CACHE_EXPIRY);
+      }
+    } else {
+      // Fetch from database if not in cache
+      const dbUser = await prisma.userMaster.findUnique({
+        where: whereClause
+      });
+
+      if (!dbUser) {
+        throw new Error("User not found.");
+      }
+
+      // Serialize and cache the user data
+      user = serializeUser(dbUser);
+      await redisClient.set(cacheKey, JSON.stringify(user), "EX", CACHE_EXPIRY);
     }
   
-    // Validate password
+    // Password validation
     const isValid = await comparePassword(Password, user.Password);
     if (!isValid) {
       throw new Error("Invalid credentials.");
     }
   
-    // Generate and set token
-    const token = generateToken({ userId: user.ID.toString() });
-    res.cookie("token", token, { httpOnly: true });
+    // Token generation with validated user ID
+    const token = generateToken({ userId: user.ID });
   
-    return { token, user };
+    return { 
+      token, 
+      user
+    };
   },
 
   /**
