@@ -162,7 +162,6 @@ const dateOfBirthWithTimestamp = `${date_of_birth}T12:00:00Z`;
   //Logs in a user, validates credentials, and returns a JWT token.
   async loginUser(
     { identifier, Password }: { identifier: string; Password: string },
-    redisClient: any,
     res: any
   ) {
     if (!identifier || !Password) {
@@ -177,25 +176,17 @@ const dateOfBirthWithTimestamp = `${date_of_birth}T12:00:00Z`;
   
     // Check if identifier is a 10-digit number
     const isMobile = /^\d{10}$/.test(identifier);
-    
+  
     const whereClause = isMobile 
       ? { mobile_num: normalizeMobileNumber(identifier) }
       : { EmailID: identifier };
   
     let user: UserMaster | null;
-    const cacheKey = `user:${isMobile ? normalizeMobileNumber(identifier) : identifier}`;
   
-    // Check Redis cache for user data
-    const cachedUser = await redisClient.get(cacheKey);
-    if (cachedUser) {
-      user = restoreBigInt(JSON.parse(cachedUser)) as UserMaster;
-    } else {
-      // Fetch user from the database if not cached
-      user = await prisma.userMaster.findUnique({ where: whereClause });
-      if (!user) {
-        throw new Error("User not found.");
-      }
-      await redisClient.set(cacheKey, safeStringify(user), "EX", 3600); // Cache for 1 hour
+    // Fetch user directly from the database
+    user = await prisma.userMaster.findUnique({ where: whereClause });
+    if (!user) {
+      throw new Error("User not found.");
     }
   
     // Validate password
