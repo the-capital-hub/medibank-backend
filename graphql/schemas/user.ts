@@ -37,12 +37,17 @@ export const userTypeDefs = gql`
     message: String
   }
 
-  type UploadResponse {
-    status: Boolean!
-    data: JSON
-    message: String
-  }
+type UploadResponse {
+  status: Boolean!
+  data: JSON
+  message: String
+}
 
+type ResetPasswordResponse {
+  status: Boolean!
+  data: JSON
+  message: String
+}
   type Mutation {
     register(
       fullname: String!
