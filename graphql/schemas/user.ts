@@ -20,12 +20,12 @@ export const userTypeDefs = gql`
     profilePicture: String
   }
 
- type AuthPayload {
-  user: User!
-  status: Boolean
-  data: JSON
-  message: String
-}
+  type AuthPayload {
+    user: User!
+    status: Boolean
+    data: JSON
+    message: String
+  }
 
   type Query {
     me: User
@@ -37,12 +37,17 @@ export const userTypeDefs = gql`
     message: String
   }
 
-  type UploadResponse {
-    status: Boolean!
-    data: JSON
-    message: String
-  }
+type UploadResponse {
+  status: Boolean!
+  data: JSON
+  message: String
+}
 
+type ResetPasswordResponse {
+  status: Boolean!
+  data: JSON
+  message: String
+}
   type Mutation {
     register(
       fullname: String!
@@ -58,15 +63,25 @@ export const userTypeDefs = gql`
 
     sendRegistrationOtp(EmailID: String!, mobile_num: String!): StandardResponse
 
-      verifyAndRegisterUser(
+    verifyAndRegisterUser(
       EmailID: String!
       mobile_num: String!
       emailOtp: String
       mobileOtp: String!
     ): StandardResponse
-uploadProfileAfterVerification(base64Data: String): UploadResponse
+
+    uploadProfileAfterVerification(base64Data: String): UploadResponse
+
     login(EmailOrMobile: String!, Password: String!): AuthPayload
 
+    sendOtpForReset(EmailIdOrMobile: String!,): StandardResponse
+
+    verifyOtpAndUpdatePassword(
+      EmailIdOrMobile: String!
+      otp: String!
+      newPassword: String!
+      confirmPassword: String!
+    ): ResetPasswordResponse
   }
 `;
 

@@ -1,3 +1,4 @@
+import { forgotPasswordService } from "../../services/forgotPassService";
 import { profileUploadService } from "../../services/ProfilePicService";
 import { userService } from "../../services/userService";
 import { Context } from "../../types/context";
@@ -133,14 +134,13 @@ export const userResolvers = {
     
     
     
-       login: async (_: unknown, { EmailOrMobile, Password }: any, { redis, res }: Context) => {
+       login: async (_: unknown, { EmailOrMobile, Password }: any, { res }: Context) => {
         try {
           const result = await userService.loginUser(
             { 
               identifier: EmailOrMobile, 
               Password 
-            }, 
-            redis, 
+            },  
             res
           );
       
@@ -171,5 +171,57 @@ export const userResolvers = {
           };
         }
       },
+      sendOtpForReset: async (_: unknown, { EmailIdOrMobile}:any) => {
+        console.log("EmailIdOrMobile", EmailIdOrMobile);
+        try {
+          
+          const result = await forgotPasswordService.initiatePasswordReset(
+          EmailIdOrMobile
+          );
+          return {
+            status: true,
+            data: result.data,
+            message: result.message
+          };
+        } catch (error) {
+          const errorMessage = getErrorMessage(error);
+          console.error("Error in initiatePasswordReset resolver:", errorMessage);
+          return {
+            status: false,
+            data: null,
+            message: errorMessage
+          };
+        }
+      },
+      verifyOtpAndUpdatePassword: async (
+        _: unknown,
+        { EmailIdOrMobile, otp, newPassword, confirmPassword }: any
+      ) => {
+        console.log('Verifying OTP and updating password:', { EmailIdOrMobile, otp, newPassword, confirmPassword });
+        try {
+          const result = await forgotPasswordService.verifyOtpAndUpdatePassword(
+            EmailIdOrMobile,
+            otp,
+            newPassword,
+            confirmPassword
+          );
+      
+          return {
+            status: true,
+            message: result.message
+          };
+        } catch (error) {
+          const errorMessage = getErrorMessage(error);
+          console.error("Error in verifyOtpAndUpdatePassword resolver:", errorMessage);
+          return {
+            status: false,
+            message: errorMessage
+          };
+        }
+      }
   },
-};
+}
+
+
+
+
