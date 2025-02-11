@@ -22,5 +22,60 @@ model UserMaster {
   sex             String
   state           String?
   profile_Picture String?
+  appointments            UserAppointment[] @relation("UserAppointments")
+  createdAppointments     UserAppointment[] @relation("CreatedByRelation")
+  updatedAppointments     UserAppointment[] @relation("UpdatedByRelation")
+  labReports             UserLabReport[]    @relation("UserLabReports")
+  createdLabReports      UserLabReport[]    @relation("LabReportCreatedBy")
+  updatedLabReports      UserLabReport[]    @relation("LabReportUpdatedBy")
 
+}
+model UserAppointment {
+  ID              BigInt     @id @default(autoincrement())
+  appointmentId   String @unique
+  doctorName      String
+  selectDate      String
+  hospitalName    String
+  chiefComplaint  String
+  PatientName     String
+  remarks         String?
+  createdOn       DateTime   @default(now())
+  updatedOn       DateTime   @updatedAt
+  userId          BigInt
+  user            UserMaster @relation("UserAppointments", fields: [userId], references: [ID])
+  uploadPrescription String?
+  uploadReport String?
+  doctorImage     String?
+  createdById     BigInt
+  createdBy       UserMaster @relation("CreatedByRelation", fields: [createdById], references: [ID])
+  updatedById     BigInt?
+  updatedBy       UserMaster? @relation("UpdatedByRelation", fields: [updatedById], references: [ID])
+
+  @@index([userId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model UserLabReport {
+  ID              BigInt     @id @default(autoincrement())
+  labReportId     String     @unique
+ labReportType    String
+ selectDate       String
+ labName          String
+ doctorName       String
+ selectFamilyMember String 
+  createdOn       DateTime   @default(now())
+  updatedOn       DateTime   @updatedAt
+  userId          BigInt
+  user            UserMaster @relation("UserLabReports", fields: [userId], references: [ID])
+  uploadLabReport    String?
+  labImage        String?
+  createdById     BigInt
+  createdBy       UserMaster @relation("LabReportCreatedBy", fields: [createdById], references: [ID])
+  updatedById     BigInt?
+  updatedBy       UserMaster? @relation("LabReportUpdatedBy", fields: [updatedById], references: [ID])
+
+  @@index([userId])
+  @@index([createdById])
+  @@index([updatedById])
 }
