@@ -1,21 +1,22 @@
-// graphql/typeDefs.ts
 import { gql } from "apollo-server-express";
 import { GraphQLJSON } from "graphql-scalars";
 
-export const userLabReportTypeDefs = gql`
+export const userHospitalReportTypeDefs = gql`
   scalar JSON
   scalar BigInt
   scalar DateTime
 
-  type UserLapReport {
+  type UserHospitalReport {
     ID: BigInt!
-    labReportId: String!
-    labReportType: String!
+    hospitalReportId: String!
+    hospitalName: String!
     selectDate: String!
-    labName: String!
     doctorName: String!
-    selectFamilyMember: String!
-    uploadLabReport: String
+    procedure: String!
+    PatientName: String!
+    remarks: String
+    uploadHospitalReport: String
+    hospitalImage: String
     createdOn: DateTime!
     updatedOn: DateTime!
     user: User!
@@ -34,8 +35,7 @@ export const userLabReportTypeDefs = gql`
     date_of_birth: String!
     sex: String!
     profile_Picture: String
-    appointments: [UserAppointment!]
-    labReports: [UserLapReport!]
+    hospitalReports: [UserHospitalReport!]
   }
 
   type StandardResponse {
@@ -45,23 +45,23 @@ export const userLabReportTypeDefs = gql`
   }
 
   type Query {
-    me: User
-    getUserLapReport(labReportId: String!): UserLapReport
-    getUserLapReports: StandardResponse!
+    getUserHospitalReport(hospitalReportId: String!): UserHospitalReport
+    getUserHospitalReports: StandardResponse!
   }
 
   type Mutation {
-    createUserLabReport(
-      labReportType: String!
+    createUserHospitalReport(
+      hospitalName: String!
       selectDate: String!
-      labName: String!
       doctorName: String!
-      selectFamilyMember: String!
-      uploadLabReport: String!
+      procedure: String!
+      patientName: String!
+      remarks: String!
+      uploadHospitalReport: String!
     ): StandardResponse!
   }
 `;
 
 export const resolvers = {
-  JSON: GraphQLJSON
+    JSON: GraphQLJSON
 };

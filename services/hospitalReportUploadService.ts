@@ -6,8 +6,8 @@ import { verifyToken } from "../utils/jwt";
 import { v4 as uuidv4 } from "uuid";
 import { Buffer } from "buffer";
 
-const default_Lab_pic = "https://shorturl.at/2dNOy"
 
+const default_Hospital_pic = "https://shorturl.at/TQyME";
 // Configuration constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -114,8 +114,8 @@ const generatePresignedUrl = async (key: string): Promise<string> => {
 };
 
 // Main service
-export const labReportUploadService = {
-  async uploadLabReports(base64Data: string, labReportId: string, token: string) {
+export const hospitalReportUploadService = {
+  async uploadHospitalReports(base64Data: string, hospitalReportId: string, token: string) {
     try {
       // Validate token
       if (!token) {
@@ -128,12 +128,12 @@ export const labReportUploadService = {
       }
 
       // Find appointment
-      const appointment = await prisma.userLabReport.findUnique({
-        where: { labReportId }
+      const hospitalReport = await prisma.userHospitalReport.findUnique({
+        where: { hospitalReportId }
       });
 
-      if (!appointment) {
-        throw new Error("Appointment not found");
+      if (!hospitalReport) {
+        throw new Error("Hospital reportnot found");
       }
 
       // Process file
@@ -151,7 +151,7 @@ export const labReportUploadService = {
 
       // Generate filename
       const fileExtension = getExtensionFromMimetype(mimetype);
-      const s3FileName = `LabReportsUpload/${labReportId}/${uuidv4()}.${fileExtension}`;
+      const s3FileName = `HospitalReportsUpload/${hospitalReportId}/${uuidv4()}.${fileExtension}`;
 
       // Upload file
       const upload = new Upload({
@@ -177,11 +177,11 @@ export const labReportUploadService = {
       const s3FileUrl = `https://${awsConfig.bucketName}.s3.${awsConfig.region}.amazonaws.com/${s3FileName}`;
 
       // Update appointment with lab report URL
-      const updatedLabReport = await prisma.userLabReport.update({
-        where: { labReportId },
+      const updatedLabReport = await prisma.userHospitalReport.update({
+        where: { hospitalReportId },
         data: {
-            labImage: default_Lab_pic,
-          uploadLabReport: presignedUrl,
+          uploadHospitalReport: presignedUrl,
+          hospitalImage: default_Hospital_pic,
           updatedOn: new Date()
         },
       });
@@ -189,8 +189,8 @@ export const labReportUploadService = {
       return {
         success: true,
         labReport: updatedLabReport,
-        uploadLabReport: presignedUrl,
-        labImage: default_Lab_pic,
+        uploadHospitalReport: presignedUrl,
+        hospitalImage: default_Hospital_pic,
         s3url: s3FileUrl,
         message: 'Lab report uploaded successfully',
       };
@@ -201,13 +201,13 @@ export const labReportUploadService = {
         success: false,
         message: error instanceof Error ? error.message : "Failed to upload lab report",
         appointment: null,
-        uploadLabReport: null,
+        uploadHospitalReport: null,
         s3url: null
       };
     }
   },
 
-  async refreshLabReportUrl(labReportId: string, token: string) {
+  async refreshLabReportUrl(hospitalReportId: string, token: string) {
     try {
       if (!token) {
         throw new Error("Token is required");
@@ -218,91 +218,91 @@ export const labReportUploadService = {
         throw new Error("Invalid token");
       }
 
-      const labReport = await prisma.userLabReport.findUnique({
-        where: { labReportId }
+      const refreshHospitalReport = await prisma.userHospitalReport.findUnique({
+        where: { hospitalReportId }
       });
 
-      if (!labReport?.uploadLabReport) {
+      if (!refreshHospitalReport?.uploadHospitalReport) {
         throw new Error("No lab report found for this appointment");
       }
 
-      const s3Key = extractS3KeyFromUrl(labReport.uploadLabReport);
+      const s3Key = extractS3KeyFromUrl(refreshHospitalReport.uploadHospitalReport);
       if (!s3Key) {
         throw new Error("Invalid lab report URL format");
       }
       
       const newPresignedUrl = await generatePresignedUrl(s3Key);
 
-      const updatedLabReport = await prisma.userLabReport.update({
-        where: { labReportId },
+      const updatedHospitalReport = await prisma.userHospitalReport.update({
+        where: { hospitalReportId },
         data: {
-          uploadLabReport: newPresignedUrl,
+          uploadHospitalReport: newPresignedUrl,
           updatedOn: new Date()
         },
       });
 
       return {
         success: true,
-        labReport: updatedLabReport,
-        uploadLabReport: newPresignedUrl,
+        hospitalReport: updatedHospitalReport,
+        uploadHospitalReport: newPresignedUrl,
         message: "Lab report URL refreshed successfully"
       };
     } catch (error) {
       return {
         success: false,
         message: error instanceof Error ? error.message : "Failed to refresh lab report URL",
-        labReport: null,
-        labReportUrl: null
+        hospitalReport: null,
+        hospitalUrl: null
       };
     }
   },
 
-  async deleteLabReport(labReportId: string, token: string) {
-    try {
-      if (!token) {
-        throw new Error("Token is required");
-      }
+//   async deleteLabReport(labReportId: string, token: string) {
+//     try {
+//       if (!token) {
+//         throw new Error("Token is required");
+//       }
 
-      const decoded = verifyToken(token);
-      if (!decoded?.userId) {
-        throw new Error("Invalid token");
-      }
+//       const decoded = verifyToken(token);
+//       if (!decoded?.userId) {
+//         throw new Error("Invalid token");
+//       }
 
-      const uploadLabReport = await prisma.userLabReport.findUnique({
-        where: { labReportId }
-      });
+//       const uploadLabReport = await prisma.userLabReport.findUnique({
+//         where: { labReportId }
+//       });
 
-      if (!uploadLabReport?.uploadLabReport) {
-        throw new Error("No lab report found for this appointment");
-      }
+//       if (!uploadLabReport?.uploadLabReport) {
+//         throw new Error("No lab report found for this appointment");
+//       }
 
-      const s3Key = extractS3KeyFromUrl(uploadLabReport.uploadLabReport);
-      if (s3Key) {
-        await s3Client.send(new DeleteObjectCommand({
-          Bucket: awsConfig.bucketName,
-          Key: s3Key
-        }));
-      }
+//       const s3Key = extractS3KeyFromUrl(uploadLabReport.uploadLabReport);
+//       if (s3Key) {
+//         await s3Client.send(new DeleteObjectCommand({
+//           Bucket: awsConfig.bucketName,
+//           Key: s3Key
+//         }));
+//       }
 
-      const updatedLabReport = await prisma.userLabReport.update({
-        where: { labReportId },
-        data: {
-          uploadLabReport: null,
-          updatedOn: new Date()
-        },
-      });
+//       const updatedLabReport = await prisma.userLabReport.update({
+//         where: { labReportId },
+//         data: {
+//           uploadLabReport: null,
+//           updatedOn: new Date()
+//         },
+//       });
 
-      return {
-        success: true,
-        labReport: updatedLabReport,
-        message: "Lab report deleted successfully"
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "Failed to delete lab report",
-        labReport: null
-      };
-    }
-  }
+//       return {
+//         success: true,
+//         labReport: updatedLabReport,
+//         message: "Lab report deleted successfully"
+//       };
+//     } catch (error) {
+//       return {
+//         success: false,
+//         message: error instanceof Error ? error.message : "Failed to delete lab report",
+//         labReport: null
+//       };
+//     }
+//   }
 };
