@@ -22,12 +22,21 @@ model UserMaster {
   sex             String
   state           String?
   profile_Picture String?
+
+
   appointments            UserAppointment[] @relation("UserAppointments")
   createdAppointments     UserAppointment[] @relation("CreatedByRelation")
   updatedAppointments     UserAppointment[] @relation("UpdatedByRelation")
+
+
   labReports             UserLabReport[]    @relation("UserLabReports")
   createdLabReports      UserLabReport[]    @relation("LabReportCreatedBy")
   updatedLabReports      UserLabReport[]    @relation("LabReportUpdatedBy")
+
+
+  hospitalReports         UserHospitalReport[] @relation("UserHospitalReports")
+  createdHospitalReports  UserHospitalReport[] @relation("HospitalReportCreatedBy")
+  updatedHospitalReports  UserHospitalReport[] @relation("HospitalReportUpdatedBy")
 
 }
 model UserAppointment {
@@ -74,6 +83,31 @@ model UserLabReport {
   createdBy       UserMaster @relation("LabReportCreatedBy", fields: [createdById], references: [ID])
   updatedById     BigInt?
   updatedBy       UserMaster? @relation("LabReportUpdatedBy", fields: [updatedById], references: [ID])
+
+  @@index([userId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model UserHospitalReport {
+  ID              BigInt     @id @default(autoincrement())
+hospitalReportId     String     @unique
+ hospitalName    String
+ selectDate       String
+ doctorName       String
+ procedure        String
+ PatientName     String
+ remarks         String?
+  createdOn       DateTime   @default(now())
+  updatedOn       DateTime   @updatedAt
+  userId          BigInt
+  user            UserMaster @relation("UserHospitalReports", fields: [userId], references: [ID])
+  uploadHospitalReport    String?
+  hospitalImage        String?
+  createdById     BigInt
+  createdBy       UserMaster @relation("HospitalReportCreatedBy", fields: [createdById], references: [ID])
+  updatedById     BigInt?
+  updatedBy       UserMaster? @relation("HospitalReportUpdatedBy", fields: [updatedById], references: [ID])
 
   @@index([userId])
   @@index([createdById])

@@ -5,6 +5,8 @@ import { userAppointmentTypeDefs } from "./schemas/userAppointmentSchema";
 import { userAppointmentResolvers } from "./resolvers/userAppointmentResolver";
 import{userLabReportTypeDefs} from "./schemas/userLabReportSchema"
 import { userLabReportResolvers } from "./resolvers/userLabReportResolver";
+import { userHospitalReportTypeDefs } from "./schemas/userHospitalReportSchema";
+import { userHospitalReportResolvers } from "./resolvers/userHospitalReportResolver";
 
-export const typeDefs = mergeTypeDefs([userTypeDefs, userAppointmentTypeDefs, userLabReportTypeDefs]);
-export const resolvers = [userResolvers, userAppointmentResolvers, userLabReportResolvers];
+export const typeDefs = mergeTypeDefs([userTypeDefs, userAppointmentTypeDefs, userLabReportTypeDefs, userHospitalReportTypeDefs]);
+export const resolvers = [userResolvers, userAppointmentResolvers, userLabReportResolvers, userHospitalReportResolvers];
