@@ -7,7 +7,7 @@ export const userLabReportTypeDefs = gql`
   scalar BigInt
   scalar DateTime
 
-  type UserLapReport {
+  type UserLabReport {
     ID: BigInt!
     labReportId: String!
     labReportType: String!
@@ -35,7 +35,7 @@ export const userLabReportTypeDefs = gql`
     sex: String!
     profile_Picture: String
     appointments: [UserAppointment!]
-    labReports: [UserLapReport!]
+    labReports: [UserLabReport!]
   }
 
   type StandardResponse {
@@ -46,8 +46,8 @@ export const userLabReportTypeDefs = gql`
 
   type Query {
     me: User
-    getUserLapReport(labReportId: String!): UserLapReport
-    getUserLapReports: StandardResponse!
+    getUserLabReport(labReportId: String!): UserLabReport
+    getAllUserLabReports: StandardResponse!
   }
 
   type Mutation {

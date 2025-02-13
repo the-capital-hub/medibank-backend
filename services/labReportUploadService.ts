@@ -66,7 +66,14 @@ const getExtensionFromMimetype = (mime: string): string => {
   };
   return extensions[mime] || 'jpg';
 };
-
+const getMimeTypeLabel = (mimeType: string): string => {
+  if (mimeType.startsWith('image/')) {
+    return 'Image';
+  } else if (mimeType === 'application/pdf') {
+    return 'PDF';
+  }
+  return 'Unknown';
+};
 const parseBase64File = (base64Data: string) => {
   try {
     const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -180,7 +187,8 @@ export const labReportUploadService = {
       const updatedLabReport = await prisma.userLabReport.update({
         where: { labReportId },
         data: {
-            labImage: default_Lab_pic,
+          labImage: default_Lab_pic,
+          docType: getMimeTypeLabel(mimetype),
           uploadLabReport: presignedUrl,
           updatedOn: new Date()
         },
