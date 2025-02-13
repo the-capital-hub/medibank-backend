@@ -26,31 +26,85 @@ interface MetadataFields {
   updatedById?: string | bigint | null;
 }
 
+interface User {
+  EmailID: string;
+  Password: string;
+  fullname: string;
+  mobile_num: string;
+  city: string | null;
+  state: string | null;
+  date_of_birth: Date | null;
+  sex: string;
+  UserType: string | null;
+  profile_Picture: string | null;
+}
+
+// Input Types
+interface AppointmentCreateInput {
+  doctorName: string;
+  selectDate: string;
+  hospitalName: string;
+  chiefComplaint: string;
+  patientName: string;
+  remarks?: string;
+  upload?: {
+    uploadPrescription?: string;
+    uploadReport?: string;
+  };
+}
+
 // Combined types
 type AppointmentType = BaseAppointment & UploadFields & MetadataFields;
 
-interface UploadResponse {
+// Response Types
+interface UploadResult {
   success: boolean;
   message?: string;
-  appointment?: AppointmentType;
-  uploadPrescription?: string;
-  uploadReport?: string;
+  prescription?: {
+    uploadPrescription: string;
+  };
+  report?: {
+    uploadReport: string;
+  };
 }
 
 interface AppointmentResponse {
   status: boolean;
   data: {
-    ID: string;
-    appointmentId: string;
-    doctorName: string;
-    selectDate: string;
-    hospitalName: string;
-    chiefComplaint: string;
-    PatientName: string;
+    ID: string | null;
+    appointmentId: string | null;
+    doctorName: string | null;
+    selectDate: string | null;
+    hospitalName: string | null;
+    chiefComplaint: string | null;
+    PatientName: string | null;
     vitals: string | null;
     remarks: string | null;
     uploadPrescription: string | null;
     uploadReport: string | null;
+  } | null;
+  message: string;
+}
+
+interface UserResponse {
+  status: boolean;
+  data: {
+    user: User | null;
+  };
+  message: string;
+}
+
+interface AppointmentListResponse {
+  status: boolean;
+  data: AppointmentType[] | null;
+  message: string;
+}
+
+interface CreateAppointmentResponse {
+  status: boolean;
+  data: {
+    appointment: AppointmentType;
+    uploads: Record<string, string | null>;
   } | null;
   message: string;
 }
@@ -61,12 +115,37 @@ function serializeBigInt(value: unknown): string | null {
   return value.toString();
 }
 
+function ensureString(value: any): string | null {
+  if (value === undefined || value === null) return null;
+  return String(value);
+}
+
+function formatDate(date: Date | string | null | undefined): string | null {
+  if (!date) return null;
+  try {
+    return new Date(date).toISOString();
+  } catch {
+    return null;
+  }
+}
+
+function formatUserResponse(
+  status: boolean,
+  user: User | null,
+  message = ""
+): UserResponse {
+  return {
+    status,
+    data: { user },
+    message
+  };
+}
+
 function formatResponse<T>(status: boolean, data: T | null = null, message = "") {
   try {
     const serializedData = data ? JSON.parse(JSON.stringify(data, (_, value) =>
       typeof value === 'bigint' ? value.toString() : value
     )) : null;
-    console.log('Serialized data:', serializedData);
     return { status, data: serializedData, message };
   } catch (error) {
     console.error('Error formatting response:', error);
@@ -75,19 +154,18 @@ function formatResponse<T>(status: boolean, data: T | null = null, message = "")
 }
 
 function mapAppointment(data: any): AppointmentType {
-  console.log('Mapping appointment data:', data);
   return {
-    appointmentId: data.appointmentId,
-    doctorName: data.doctorName,
-    selectDate: data.selectDate,
-    hospitalName: data.hospitalName || '',
-    chiefComplaint: data.chiefComplaint,
-    patientName: data.PatientName,
-    remarks: data.remarks || null,
-    uploadPrescription: data.prescription?.uploadPrescription || null,
-    uploadReport: data.report?.uploadReport || null,
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
+    appointmentId: ensureString(data.appointmentId) || '',
+    doctorName: ensureString(data.doctorName) || '',
+    selectDate: ensureString(data.selectDate) || '',
+    hospitalName: ensureString(data.hospitalName) || '',
+    chiefComplaint: ensureString(data.chiefComplaint) || '',
+    patientName: ensureString(data.PatientName)|| undefined,
+    remarks: ensureString(data.remarks),
+    uploadPrescription: ensureString(data.prescription?.uploadPrescription),
+    uploadReport: ensureString(data.report?.uploadReport),
+    createdAt: data.createdAt ? new Date(data.createdAt) : undefined,
+    updatedAt: data.updatedAt ? new Date(data.updatedAt) : undefined,
     createdById: serializeBigInt(data.createdById),
     updatedById: serializeBigInt(data.updatedById)
   };
@@ -99,21 +177,25 @@ async function getAuthenticatedUser(req: Context['req']): Promise<string> {
   return userId;
 }
 
-// Main resolver
-export const userAppointmentResolvers = {
+// Main resolvers
+export const userAppointmentResolvers:any = {
   Query: {
-    me: async (_: unknown, __: unknown, { req }: Context) => {
+    me: async (_: unknown, __: unknown, { req }: Context): Promise<UserResponse> => {
       try {
         const userId = await getAuthenticatedUser(req);
         const user = await userService.getUserById(userId);
-        return formatResponse(true, user, "User fetched successfully");
+        return formatUserResponse(true, user, "User fetched successfully");
       } catch (error) {
         console.error("Error in me query:", error);
-        return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
+        return formatUserResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
       }
     },
 
-    getUserAppointment: async (_: unknown, { appointmentId }: { appointmentId: string }, { req }: Context): Promise<AppointmentResponse> => {
+    getUserAppointment: async (
+      _: unknown,
+      { appointmentId }: { appointmentId: string },
+      { req }: Context
+    ): Promise<AppointmentResponse> => {
       try {
         await getAuthenticatedUser(req);
         console.log("Fetching appointment with ID:", appointmentId);
@@ -130,20 +212,18 @@ export const userAppointmentResolvers = {
         }
 
         const mappedData = {
-          ID: appointment.ID,
-          appointmentId: appointment.appointmentId,
-          doctorName: appointment.doctorName,
-          selectDate: appointment.selectDate,
-          hospitalName: appointment.hospitalName,
-          chiefComplaint: appointment.chiefComplaint,
-          PatientName: appointment.PatientName,
-          vitals: appointment.vitals,
-          remarks: appointment.remarks,
-          uploadPrescription: appointment.prescription?.uploadPrescription || null,
-          uploadReport: appointment.report?.uploadReport || null,
+          ID: ensureString(appointment.ID),
+          appointmentId: ensureString(appointment.appointmentId),
+          doctorName: ensureString(appointment.doctorName),
+          selectDate: ensureString(appointment.selectDate),
+          hospitalName: ensureString(appointment.hospitalName),
+          chiefComplaint: ensureString(appointment.chiefComplaint),
+          PatientName: ensureString(appointment.PatientName),
+          vitals: ensureString(appointment.vitals),
+          remarks: ensureString(appointment.remarks),
+          uploadPrescription: ensureString(appointment.prescription?.uploadPrescription),
+          uploadReport: ensureString(appointment.report?.uploadReport),
         };
-
-        console.log("Mapped appointment data:", mappedData);
 
         return {
           status: true,
@@ -160,7 +240,7 @@ export const userAppointmentResolvers = {
       }
     },
 
-    getAllUserAppointments: async (_: unknown, __: unknown, { req }: Context) => {
+    getAllUserAppointments: async (_: unknown, __: unknown, { req }: Context): Promise<AppointmentListResponse> => {
       try {
         const token = req.headers.authorization?.replace('Bearer ', '');
         if (!token) {
@@ -168,7 +248,7 @@ export const userAppointmentResolvers = {
         }
         
         const appointments = await userAppointmentService.getAllAppointments(token);
-        return formatResponse(true, appointments, "Appointments fetched successfully");
+        return formatResponse(true, appointments.map(mapAppointment), "Appointments fetched successfully");
       } catch (error) {
         console.error("Error fetching all appointments:", error);
         return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
@@ -179,90 +259,80 @@ export const userAppointmentResolvers = {
   Mutation: {
     createUserAppointment: async (
       _: unknown,
-      args: {
-        doctorName: string;
-        selectDate: string;
-        hospitalName: string;
-        chiefComplaint: string;
-        patientName: string;
-        remarks?: string;
-        uploadPrescription?: string;
-        uploadReport?: string;
-      },
+      { input }: { input: AppointmentCreateInput },
       { req }: Context
-    ) => {
+    ): Promise<CreateAppointmentResponse> => {
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
         return formatResponse(false, null, "Authentication token is required");
       }
 
       try {
-        console.log("Creating appointment with args:", args);
+        console.log("Creating appointment with input:", input);
 
         const appointment = await userAppointmentService.createUserAppointment(
-          args.doctorName,
-          args.selectDate,
-          args.hospitalName,
-          args.chiefComplaint,
-          args.patientName,
-          args.remarks || "",
+          input.doctorName,
+          input.selectDate,
+          input.hospitalName,
+          input.chiefComplaint,
+          input.patientName,
+          input.remarks || "",
           token
         );
 
         let mappedAppointment = mapAppointment(appointment);
         const uploadResults: Record<string, string | null> = {};
 
-        const uploadTasks: Promise<UploadResponse | null>[] = [];
+        if (input.upload) {
+          const uploadTasks: Promise<UploadResult>[] = [];
 
-        if (args.uploadPrescription) {
-          uploadTasks.push(
-            appointmentUploadService.uploadPrescription(
-              args.uploadPrescription,
-              appointment.appointmentId,
-              token
-            ).then(result => ({
-              success: result.success,
-              appointment: result.appointment || null,
-              uploadPrescription: result.uploadPrescription || null,
-            }) as UploadResponse)
-          );
+          if (input.upload.uploadPrescription) {
+            uploadTasks.push(
+              appointmentUploadService.uploadPrescription(
+                input.upload.uploadPrescription,
+                appointment.appointmentId,
+                token
+              ).then(result => ({
+                success: result.success,
+                message: result.message,
+                prescription: {
+                  uploadPrescription: result.uploadPrescription || ''
+                }
+              }))
+            );
+          }
+
+          if (input.upload.uploadReport) {
+            uploadTasks.push(
+              appointmentUploadService.uploadReport(
+                input.upload.uploadReport,
+                appointment.appointmentId,
+                token
+              ).then(result => ({
+                success: result.success,
+                message: result.message,
+                report: {
+                  uploadReport: result.uploadReport || ''
+                }
+              }))
+            );
+          }
+
+          const uploadResultsArray = await Promise.all(uploadTasks);
+
+          uploadResultsArray.forEach(result => {
+            if (result.success) {
+              if (result.prescription) {
+                uploadResults['prescription'] = result.prescription.uploadPrescription;
+                mappedAppointment.uploadPrescription = result.prescription.uploadPrescription;
+              }
+              if (result.report) {
+                uploadResults['report'] = result.report.uploadReport;
+                mappedAppointment.uploadReport = result.report.uploadReport;
+              }
+            }
+          });
         }
-
-        if (args.uploadReport) {
-          uploadTasks.push(
-            appointmentUploadService.uploadReport(
-              args.uploadReport,
-              appointment.appointmentId,
-              token
-            ).then(result => ({
-              success: result.success,
-              appointment: result.appointment || null,
-              uploadReport: result.uploadReport || null,
-            }) as UploadResponse)
-          );
-        }
-
-        const uploadResultsArray = (await Promise.all(uploadTasks)).filter(Boolean) as UploadResponse[];
-
-        uploadResultsArray.forEach(result => {
-          if (result.success && result.appointment) {
-            mappedAppointment = {
-              ...mappedAppointment,
-              ...mapAppointment(result.appointment)
-            };
-          }
-
-          if (result.uploadPrescription) {
-            uploadResults['prescription'] = result.uploadPrescription;
-          }
-
-          if (result.uploadReport) {
-            uploadResults['report'] = result.uploadReport;
-          }
-        });
-
-        console.log("Final mapped appointment:", mappedAppointment);
-        console.log("Upload results:", uploadResults);
 
         return formatResponse(
           true,

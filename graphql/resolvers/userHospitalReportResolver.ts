@@ -3,7 +3,7 @@ import { Context } from "../../types/context";
 import { hospitalReportUploadService } from "../../services/hospitalReportUploadService";
 import { userService } from "../../services/userService";
 
-// User interface
+// User interface remains the same
 interface User {
   EmailID: string;
   Password: string;
@@ -17,7 +17,7 @@ interface User {
   profile_Picture: string | null;
 }
 
-// Hospital report interfaces
+// Hospital report interfaces remain the same
 interface BaseHospitalReport {
   hospitalReportId: string;
   hospitalName: string;
@@ -46,7 +46,7 @@ interface HospitalReportListItem {
   };
 }
 
-// Response types for different data structures
+// Update response types
 interface UserResponse {
   status: boolean;
   data: {
@@ -63,22 +63,14 @@ interface HospitalReportResponse {
   message: string;
 }
 
+// Updated HospitalReportListResponse to have array directly in data
 interface HospitalReportListResponse {
   status: boolean;
-  data: {
-    hospitalReports: HospitalReportListItem[];
-  } | null;
+  data: HospitalReportListItem[] | null;  // Changed to direct array
   message: string;
 }
 
-// Type guard to check response types
-function isHospitalReportList(
-  data: any[]
-): data is HospitalReportListItem[] {
-  return Array.isArray(data) && data.length >= 0 && 'hospitalReportId' in (data[0] || {});
-}
-
-// Separate format response functions for different types
+// Update formatting functions
 function formatUserResponse(
   status: boolean,
   user: User | null,
@@ -103,6 +95,7 @@ function formatHospitalReportResponse(
   };
 }
 
+// Updated to return array directly in data field
 function formatHospitalReportListResponse(
   status: boolean,
   hospitalReports: HospitalReportListItem[] | null,
@@ -110,7 +103,7 @@ function formatHospitalReportListResponse(
 ): HospitalReportListResponse {
   return {
     status,
-    data: hospitalReports ? { hospitalReports } : null,
+    data: hospitalReports,  // No longer nested under hospitalReports
     message
   };
 }
@@ -161,6 +154,7 @@ export const userHospitalReportResolvers = {
       }
     }
   },
+
 
   Mutation: {
     createUserHospitalReport: async (
