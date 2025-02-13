@@ -6,23 +6,10 @@ import { verifyToken } from "../utils/jwt";
 import { v4 as uuidv4 } from "uuid";
 import { Buffer } from "buffer";
 
-// Configuration constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
-const extractS3KeyFromUrl = (url: string): string | null => {
-    try {
-      if (!url) return null;
-      
-      const urlWithoutParams = url.split('?')[0];
-      const matches = urlWithoutParams.match(/amazonaws\.com\/(.+)$/);
-      return matches ? matches[1] : null;
-    } catch (error) {
-      console.error("Error extracting S3 key:", error);
-      return null;
-    }
-  };
-// AWS Configuration validation
-function validateAwsConfig() {
+
+const validateAwsConfig = () => {
   const required = [
     'AWS_REGION',
     'AWS_ACCESS_KEY_ID',
@@ -42,9 +29,8 @@ function validateAwsConfig() {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     bucketName: process.env.AWS_S3_BUCKET!
   };
-}
+};
 
-// Initialize S3 client
 const awsConfig = validateAwsConfig();
 const s3Client = new S3Client({
   region: awsConfig.region,
@@ -54,7 +40,6 @@ const s3Client = new S3Client({
   },
 });
 
-// Utility functions
 const getExtensionFromMimetype = (mime: string): string => {
   const extensions: Record<string, string> = {
     'image/jpeg': 'jpg',
@@ -62,6 +47,15 @@ const getExtensionFromMimetype = (mime: string): string => {
     'application/pdf': 'pdf'
   };
   return extensions[mime] || 'jpg';
+};
+
+const getMimeTypeLabel = (mimeType: string): string => {
+  const typeMap: Record<string, string> = {
+    'image/jpeg': 'JPG',
+    'image/png': 'PNG',
+    'application/pdf': 'PDF'
+  };
+  return typeMap[mimeType] || 'Unknown';
 };
 
 const parseBase64File = (base64Data: string) => {
@@ -100,6 +94,19 @@ const detectMimeType = (buffer: Buffer): string => {
   }
   
   throw new Error('Unsupported file format');
+};
+
+const extractS3KeyFromUrl = (url: string): string | null => {
+  try {
+    if (!url) return null;
+    
+    const urlWithoutParams = url.split('?')[0];
+    const matches = urlWithoutParams.match(/amazonaws\.com\/(.+)$/);
+    return matches ? matches[1] : null;
+  } catch (error) {
+    console.error("Error extracting S3 key:", error);
+    return null;
+  }
 };
 
 const generatePresignedUrl = async (key: string): Promise<string> => {
@@ -177,6 +184,7 @@ export const appointmentUploadService = {
             where: { appointmentId },
             data: {
               uploadPrescription: presignedUrl,
+              prescriptionDocType: getMimeTypeLabel(mimetype),
               updatedOn: new Date()
             },
           });
@@ -184,6 +192,7 @@ export const appointmentUploadService = {
           return {
             success: true,
             appointment: updatedAppointment,
+            prescriptionDocType: getMimeTypeLabel(mimetype),
             uploadPrescription: presignedUrl,
             s3url: s3FileUrl,
             message: 'Prescription uploaded successfully',
@@ -310,6 +319,7 @@ export const appointmentUploadService = {
             where: { appointmentId },
             data: {
               uploadReport: presignedUrl,
+              reportDocType: getMimeTypeLabel(mimetype),
               updatedOn: new Date()
             },
           });
