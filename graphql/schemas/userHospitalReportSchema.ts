@@ -45,8 +45,9 @@ export const userHospitalReportTypeDefs = gql`
   }
 
   type Query {
+  me: User!
     getUserHospitalReport(hospitalReportId: String!): UserHospitalReport
-    getUserHospitalReports: StandardResponse!
+    getAllUserHospitalReports: StandardResponse!
   }
 
   type Mutation {
