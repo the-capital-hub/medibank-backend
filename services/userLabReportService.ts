@@ -77,26 +77,47 @@ export const userLabReportService = {
     return this.serializeLabReport(labReport);
   },
 
-  async getUserLapReports(userId: string) {
-    const userBigInt = BigInt(userId);
-
+  async getUserLabReports(token: string) {
+    if (!token) {
+      throw new Error("Token is required");
+    }
+  
+    const decoded = verifyToken(token);
+    if (!decoded?.userId) {
+      throw new Error("Invalid token");
+    }
+  
+    const userId = BigInt(decoded.userId);
+  
     const labReports = await prisma.userLabReport.findMany({
       where: {
-        userId: userBigInt,
+        userId: userId,
       },
-      include: {
-        user: true,
-        createdBy: true,
-        updatedBy: true,
+      select: {
+        ID: true,
+        labReportId: true,
+        labImage: true,
+        labName: true,
+        labReportType: true,
+        selectDate: true,
+        docType: true, // Ensure this exists in your Prisma schema
+        uploadLabReport: true, // Ensure this exists in your Prisma schema
       },
       orderBy: {
-        createdOn: "desc",
+        createdOn: 'desc',
       },
     });
-
-    return labReports.map(this.serializeLabReport);
+  
+    return labReports.map(({ ID, docType, uploadLabReport, ...labReportData }) => ({
+      ID: ID.toString(),
+      ...labReportData,
+      report: {
+        docType: docType || null,
+        labReport: uploadLabReport || null,
+      },
+    }));
   },
-
+  
   async getLabReportByLabReportId(labReportId: string) {
     const labReport = await prisma.userLabReport.findUnique({
       where: {

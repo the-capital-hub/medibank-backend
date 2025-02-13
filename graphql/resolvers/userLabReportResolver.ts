@@ -80,7 +80,23 @@ export const userLabReportResolvers = {
         return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
       }
     },
-  },
+      getAllUserLabReports: async (_: unknown, __: unknown, { req }: Context) => {
+          try {
+            const token = req.headers.authorization?.replace('Bearer ', '');
+            if (!token) {
+              throw new Error('Authorization token is required');
+            }
+            
+            const labReports = await userLabReportService.getUserLabReports(token);
+            return formatResponse(true, labReports, "Appointments fetched successfully");
+          } catch (error) {
+            console.error("Error fetching all appointments:", error);
+            return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
+          }
+        }
+      },
+  
+
 
   Mutation: {
     createUserLabReport: async (

@@ -82,6 +82,7 @@ model UserLabReport {
   user            UserMaster @relation("UserLabReports", fields: [userId], references: [ID])
   uploadLabReport    String?
   labImage        String?
+  docType         String?
   createdById     BigInt
   createdBy       UserMaster @relation("LabReportCreatedBy", fields: [createdById], references: [ID])
   updatedById     BigInt?
