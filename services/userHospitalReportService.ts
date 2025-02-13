@@ -76,24 +76,45 @@ export const userHospitalReportService = {
     return this.serializeHospitalReport(report);
   },
 
-  async getUserHospitalReports(userId: string) {
-    const userBigInt = BigInt(userId);
-
-    const reports = await prisma.userHospitalReport.findMany({
+  async getAllUserHospitalReports(token: string) {
+    if (!token) {
+      throw new Error("Token is required");
+    }
+  
+    const decoded = verifyToken(token);
+    if (!decoded?.userId) {
+      throw new Error("Invalid token");
+    }
+  
+    const userId = BigInt(decoded.userId);
+  
+    const hospitalReports = await prisma.userHospitalReport.findMany({
       where: {
-        userId: userBigInt,
+        userId: userId,
       },
-      include: {
-        user: true,
-        createdBy: true,
-        updatedBy: true,
+      select: {
+        ID: true,
+        hospitalReportId: true,
+        hospitalImage: true,
+        hospitalName: true,
+        procedure:true,
+        selectDate: true,
+        docType: true, // Ensure this exists in your Prisma schema
+        uploadHospitalReport: true, // Ensure this exists in your Prisma schema
       },
       orderBy: {
-        createdOn: "desc",
+        createdOn: 'desc',
       },
     });
-
-    return reports.map(this.serializeHospitalReport);
+  
+    return hospitalReports.map(({ ID, docType, uploadHospitalReport, ...hospitalReportData }) => ({
+      ID: ID.toString(),
+      ...hospitalReportData,
+      report: {
+        docType: docType || null,
+        hospitalReport: uploadHospitalReport || null,
+      },
+    }));
   },
 
   async getHospitalReportById(hospitalReportId: string) {

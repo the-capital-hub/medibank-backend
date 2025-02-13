@@ -66,7 +66,14 @@ const getExtensionFromMimetype = (mime: string): string => {
   };
   return extensions[mime] || 'jpg';
 };
-
+const getMimeTypeLabel = (mimeType: string): string => {
+  if (mimeType.startsWith('image/')) {
+    return 'Image';
+  } else if (mimeType === 'application/pdf') {
+    return 'PDF';
+  }
+  return 'Unknown';
+};
 const parseBase64File = (base64Data: string) => {
   try {
     const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -181,6 +188,7 @@ export const hospitalReportUploadService = {
         where: { hospitalReportId },
         data: {
           uploadHospitalReport: presignedUrl,
+          docType: getMimeTypeLabel(mimetype),
           hospitalImage: default_Hospital_pic,
           updatedOn: new Date()
         },

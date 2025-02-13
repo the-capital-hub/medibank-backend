@@ -107,6 +107,7 @@ hospitalReportId     String     @unique
   userId          BigInt
   user            UserMaster @relation("UserHospitalReports", fields: [userId], references: [ID])
   uploadHospitalReport    String?
+  docType        String?
   hospitalImage        String?
   createdById     BigInt
   createdBy       UserMaster @relation("HospitalReportCreatedBy", fields: [createdById], references: [ID])
