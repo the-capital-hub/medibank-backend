@@ -52,8 +52,11 @@ model UserAppointment {
   updatedOn       DateTime   @updatedAt
   userId          BigInt
   user            UserMaster @relation("UserAppointments", fields: [userId], references: [ID])
+  prescriptionDocType String?
   uploadPrescription String?
+  reportDocType String?
   uploadReport String?
+  vitals String?
   doctorImage     String?
   createdById     BigInt
   createdBy       UserMaster @relation("CreatedByRelation", fields: [createdById], references: [ID])

@@ -8,20 +8,21 @@ export const userAppointmentTypeDefs = gql`
   scalar DateTime
 
   type UserAppointment {
-    ID: BigInt!
-    appointmentId: String!
-    doctorName: String!
-    selectDate: String!
-    hospitalName: String!
-    chiefComplaint: String!
-    PatientName: String!
+    ID: ID
+    appointmentId: String
+    doctorName: String
+    selectDate: String
+    hospitalName: String
+    chiefComplaint: String
+    PatientName: String
+    vitals: String
     remarks: String
     uploadPrescription: String
     uploadReport: String
-    createdOn: DateTime!
-    updatedOn: DateTime!
-    user: User!
-    createdBy: User!
+    createdOn: DateTime
+    updatedOn: DateTime
+    user: User
+    createdBy: User
     updatedBy: User
   }
 
@@ -45,11 +46,10 @@ export const userAppointmentTypeDefs = gql`
     message: String
   }
 
-
   type Query {
-    me: User
+    me: User!
     getUserAppointment(appointmentId: String!): UserAppointment
-    getUserAppointments: StandardResponse!
+    getAllUserAppointments: StandardResponse!
   }
 
   type Mutation {
@@ -59,6 +59,7 @@ export const userAppointmentTypeDefs = gql`
       hospitalName: String!
       chiefComplaint: String!
       patientName: String!
+      vitals: String
       remarks: String
       uploadPrescription: String
       uploadReport: String

@@ -3,6 +3,7 @@ import { Context } from "../../types/context";
 import { userService } from "../../services/userService";
 import { appointmentUploadService } from "../../services/appointmentUploadService";
 
+// Base interfaces
 interface BaseAppointment {
   appointmentId: string;
   doctorName: string;
@@ -25,6 +26,7 @@ interface MetadataFields {
   updatedById?: string | bigint | null;
 }
 
+// Combined types
 type AppointmentType = BaseAppointment & UploadFields & MetadataFields;
 
 interface UploadResponse {
@@ -35,6 +37,25 @@ interface UploadResponse {
   uploadReport?: string;
 }
 
+interface AppointmentResponse {
+  status: boolean;
+  data: {
+    ID: string;
+    appointmentId: string;
+    doctorName: string;
+    selectDate: string;
+    hospitalName: string;
+    chiefComplaint: string;
+    PatientName: string;
+    vitals: string | null;
+    remarks: string | null;
+    uploadPrescription: string | null;
+    uploadReport: string | null;
+  } | null;
+  message: string;
+}
+
+// Helper functions
 function serializeBigInt(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   return value.toString();
@@ -45,7 +66,7 @@ function formatResponse<T>(status: boolean, data: T | null = null, message = "")
     const serializedData = data ? JSON.parse(JSON.stringify(data, (_, value) =>
       typeof value === 'bigint' ? value.toString() : value
     )) : null;
-
+    console.log('Serialized data:', serializedData);
     return { status, data: serializedData, message };
   } catch (error) {
     console.error('Error formatting response:', error);
@@ -54,16 +75,17 @@ function formatResponse<T>(status: boolean, data: T | null = null, message = "")
 }
 
 function mapAppointment(data: any): AppointmentType {
+  console.log('Mapping appointment data:', data);
   return {
     appointmentId: data.appointmentId,
     doctorName: data.doctorName,
     selectDate: data.selectDate,
     hospitalName: data.hospitalName || '',
     chiefComplaint: data.chiefComplaint,
-    patientName: data.patientName,
+    patientName: data.PatientName,
     remarks: data.remarks || null,
-    uploadPrescription: data.uploadPrescription || null,
-    uploadReport: data.uploadReport || null,
+    uploadPrescription: data.prescription?.uploadPrescription || null,
+    uploadReport: data.report?.uploadReport || null,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
     createdById: serializeBigInt(data.createdById),
@@ -77,6 +99,7 @@ async function getAuthenticatedUser(req: Context['req']): Promise<string> {
   return userId;
 }
 
+// Main resolver
 export const userAppointmentResolvers = {
   Query: {
     me: async (_: unknown, __: unknown, { req }: Context) => {
@@ -85,27 +108,69 @@ export const userAppointmentResolvers = {
         const user = await userService.getUserById(userId);
         return formatResponse(true, user, "User fetched successfully");
       } catch (error) {
+        console.error("Error in me query:", error);
         return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
       }
     },
 
-    getUserAppointment: async (_: unknown, { appointmentId }: { appointmentId: string }, { req }: Context) => {
+    getUserAppointment: async (_: unknown, { appointmentId }: { appointmentId: string }, { req }: Context): Promise<AppointmentResponse> => {
       try {
         await getAuthenticatedUser(req);
+        console.log("Fetching appointment with ID:", appointmentId);
+        
         const appointment = await userAppointmentService.getAppointmentByAppointmentId(appointmentId);
-        return formatResponse(true, mapAppointment(appointment), "Appointment fetched successfully");
+        console.log("Raw appointment data:", appointment);
+
+        if (!appointment) {
+          return {
+            status: false,
+            data: null,
+            message: `No appointment found with ID: ${appointmentId}`
+          };
+        }
+
+        const mappedData = {
+          ID: appointment.ID,
+          appointmentId: appointment.appointmentId,
+          doctorName: appointment.doctorName,
+          selectDate: appointment.selectDate,
+          hospitalName: appointment.hospitalName,
+          chiefComplaint: appointment.chiefComplaint,
+          PatientName: appointment.PatientName,
+          vitals: appointment.vitals,
+          remarks: appointment.remarks,
+          uploadPrescription: appointment.prescription?.uploadPrescription || null,
+          uploadReport: appointment.report?.uploadReport || null,
+        };
+
+        console.log("Mapped appointment data:", mappedData);
+
+        return {
+          status: true,
+          data: mappedData,
+          message: "Appointment fetched successfully"
+        };
       } catch (error) {
-        return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
+        console.error("Error fetching appointment:", error);
+        return {
+          status: false,
+          data: null,
+          message: error instanceof Error ? error.message : "Error fetching appointment"
+        };
       }
     },
 
-    getUserAppointments: async (_: unknown, __: unknown, { req }: Context) => {
+    getAllUserAppointments: async (_: unknown, __: unknown, { req }: Context) => {
       try {
-        const userId = await getAuthenticatedUser(req);
-        const appointments = await userAppointmentService.getUserAppointments(userId);
-        const mappedAppointments = appointments.map(mapAppointment);
-        return formatResponse(true, mappedAppointments, "Appointments fetched successfully");
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) {
+          throw new Error('Authorization token is required');
+        }
+        
+        const appointments = await userAppointmentService.getAllAppointments(token);
+        return formatResponse(true, appointments, "Appointments fetched successfully");
       } catch (error) {
+        console.error("Error fetching all appointments:", error);
         return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
       }
     }
@@ -132,6 +197,8 @@ export const userAppointmentResolvers = {
       }
 
       try {
+        console.log("Creating appointment with args:", args);
+
         const appointment = await userAppointmentService.createUserAppointment(
           args.doctorName,
           args.selectDate,
@@ -194,6 +261,9 @@ export const userAppointmentResolvers = {
           }
         });
 
+        console.log("Final mapped appointment:", mappedAppointment);
+        console.log("Upload results:", uploadResults);
+
         return formatResponse(
           true,
           {
@@ -203,6 +273,7 @@ export const userAppointmentResolvers = {
           "Appointment created successfully"
         );
       } catch (error) {
+        console.error("Error creating appointment:", error);
         return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
       }
     }

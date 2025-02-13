@@ -3,11 +3,42 @@ import { verifyToken } from "../utils/jwt";
 import { UserAppointment, UserMaster } from "@prisma/client";
 
 const defaultDocPic = "https://shorturl.at/bp1wb";
+const defaultPatientPic = "https://shorturl.at/n5anT";
+
+interface AppointmentResponse {
+  ID: string;
+  appointmentId: string;
+  doctorName: string;
+  doctorImage: string | null;
+  chiefComplaint: string;
+  selectDate: string;
+  remarks: string|null;
+  vitals: string | null;
+  hospitalName: string;
+  PatientName: string;
+  userId: string | null;
+  prescription: {
+    prescriptionDocType: string | null;
+    uploadPrescription: string | null;
+  };
+  report: {
+    reportDocType: string | null;
+    uploadReport: string | null;
+  };
+}
 
 export const userAppointmentService = {
-  // Helper method to convert BigInt to string safely
-   convertBigIntToString(value: bigint | null | undefined): string | null {
+  convertBigIntToString(value: bigint | null | undefined): string | null {
     return value ? value.toString() : null;
+  },
+
+  async getDefaultImage(userId: bigint): Promise<string> {
+    const user = await prisma.userMaster.findUnique({
+      where: { ID: userId },
+      select: { UserType: true }
+    });
+    
+    return user?.UserType === 'DOCTOR' ? defaultDocPic : defaultPatientPic;
   },
 
   async generateAppointmentId(mbid: string): Promise<string> {
@@ -55,11 +86,12 @@ export const userAppointmentService = {
     }
 
     const appointmentId = await this.generateAppointmentId(user.MBID);
+    const defaultImage = await this.getDefaultImage(userId);
 
     const appointment = await prisma.userAppointment.create({
       data: {
         appointmentId,
-        doctorImage: defaultDocPic,
+        doctorImage: defaultImage,
         doctorName,
         selectDate,
         hospitalName,
@@ -80,43 +112,92 @@ export const userAppointmentService = {
     return this.serializeAppointment(appointment);
   },
 
-  async getUserAppointments(userId: string) {
-    const userBigInt = BigInt(userId);
+  async getAllAppointments(token: string) {
+    if (!token) {
+      throw new Error("Token is required");
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded?.userId) {
+      throw new Error("Invalid token");
+    }
+
+    const userId = BigInt(decoded.userId);
 
     const appointments = await prisma.userAppointment.findMany({
       where: {
-        userId: userBigInt,
+        userId: userId,
       },
-      include: {
-        user: true,
-        createdBy: true,
-        updatedBy: true,
+      select: {
+        ID: true,
+        appointmentId: true,
+        doctorImage: true,
+        doctorName: true,
+        chiefComplaint: true,
+        selectDate: true,
       },
       orderBy: {
-        createdOn: "desc",
+        createdOn: 'desc',
       },
     });
 
-    return appointments.map(this.serializeAppointment);
+    return appointments.map(appointment => ({
+      ...appointment,
+      ID: appointment.ID.toString()
+    }));
   },
 
-  async getAppointmentByAppointmentId(appointmentId: string) {
+  async getAppointmentByAppointmentId(appointmentId: string): Promise<AppointmentResponse> {
     const appointment = await prisma.userAppointment.findUnique({
       where: {
         appointmentId,
       },
-      include: {
-        user: true,
-        createdBy: true,
-        updatedBy: true,
+      select: {
+        ID: true,
+        appointmentId: true,
+        doctorName: true,
+        doctorImage: true,
+        chiefComplaint: true,
+        selectDate: true,
+        remarks: true,
+        vitals: true,
+        prescriptionDocType: true,
+        uploadPrescription: true,
+        reportDocType: true,
+        uploadReport: true,
+        userId: true,
+        hospitalName: true,
+        PatientName: true,
       },
     });
-
+  
     if (!appointment) {
       throw new Error("Appointment not found");
     }
-
-    return this.serializeAppointment(appointment);
+  
+    const {
+      prescriptionDocType,
+      uploadPrescription,
+      reportDocType,
+      uploadReport,
+      ID,
+      userId,
+      ...basicAppointmentData
+    } = appointment;
+  
+    return {
+      ID: ID.toString(),
+      ...basicAppointmentData,
+      userId: userId ? userId.toString() : null,
+      prescription: {
+        prescriptionDocType: prescriptionDocType || null,
+        uploadPrescription: uploadPrescription || null,
+      },
+      report: {
+        reportDocType: reportDocType || null,
+        uploadReport: uploadReport || null,
+      }
+    };
   },
 
   serializeAppointment(appointment: UserAppointment & { 
@@ -125,12 +206,10 @@ export const userAppointmentService = {
     updatedBy?: UserMaster | null 
   }) {
     return {
-      // Convert BigInt fields to strings
+      ID: appointment.ID.toString(),
       userId: this.convertBigIntToString(appointment.userId),
       createdById: this.convertBigIntToString(appointment.createdById),
       updatedById: this.convertBigIntToString(appointment.updatedById),
-
-      // Existing fields
       doctorImage: appointment.doctorImage,
       appointmentId: appointment.appointmentId,
       doctorName: appointment.doctorName,
@@ -141,8 +220,6 @@ export const userAppointmentService = {
       remarks: appointment.remarks,
       createdOn: appointment.createdOn,
       updatedOn: appointment.updatedOn,
-
-      // Serialize related entities, converting their IDs to strings
       user: appointment.user ? {
         ...appointment.user,
         ID: this.convertBigIntToString(appointment.user.ID)
