@@ -3,6 +3,35 @@ import { Context } from "../../types/context";
 import { userService } from "../../services/userService";
 import { appointmentUploadService } from "../../services/appointmentUploadService";
 
+
+interface SimpleAppointment {
+  ID: string | bigint;
+  appointmentId: string;
+  doctorImage: string | null;
+  doctorName: string;
+  chiefComplaint: string;
+  selectDate: string;
+}
+
+interface SimpleAppointmentResponse {
+  status: boolean;
+  data: SimpleAppointment[] | null;
+  message: string;
+}
+
+function mapSimpleAppointment(data: any): SimpleAppointment {
+  return {
+    ID: data.ID,
+    appointmentId: ensureString(data.appointmentId) || '',
+    doctorImage: ensureString(data.doctorImage),
+    doctorName: ensureString(data.doctorName) || '',
+    chiefComplaint: ensureString(data.chiefComplaint) || '',
+    selectDate: ensureString(data.selectDate) || '',
+  };
+}
+
+
+
 // Base interfaces
 interface BaseAppointment {
   appointmentId: string;
@@ -24,6 +53,12 @@ interface MetadataFields {
   updatedAt?: Date;
   createdById?: string | bigint | null;
   updatedById?: string | bigint | null;
+}
+
+interface StandardResponse {
+  status: boolean;
+  data: any | null;
+  message: string;
 }
 
 interface User {
@@ -118,6 +153,12 @@ function serializeBigInt(value: unknown): string | null {
 function ensureString(value: any): string | null {
   if (value === undefined || value === null) return null;
   return String(value);
+}
+
+interface StandardResponse {
+  status: boolean;
+  data: any | null;
+  message: string;
 }
 
 function formatDate(date: Date | string | null | undefined): string | null {
@@ -239,8 +280,11 @@ export const userAppointmentResolvers:any = {
         };
       }
     },
-
-    getAllUserAppointments: async (_: unknown, __: unknown, { req }: Context): Promise<AppointmentListResponse> => {
+    getAllUserAppointments: async (
+      _: unknown, 
+      __: unknown, 
+      { req }: Context
+    ): Promise<SimpleAppointmentResponse> => {
       try {
         const token = req.headers.authorization?.replace('Bearer ', '');
         if (!token) {
@@ -248,10 +292,30 @@ export const userAppointmentResolvers:any = {
         }
         
         const appointments = await userAppointmentService.getAllAppointments(token);
-        return formatResponse(true, appointments.map(mapAppointment), "Appointments fetched successfully");
+        
+        if (!appointments) {
+          return {
+            status: true,
+            data: [],
+            message: "No appointments found"
+          };
+        }
+
+        const mappedAppointments = appointments.map(mapSimpleAppointment);
+
+        return {
+          status: true,
+          data: mappedAppointments,
+          message: "Appointments fetched successfully"
+        };
+
       } catch (error) {
         console.error("Error fetching all appointments:", error);
-        return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
+        return {
+          status: false,
+          data: null,
+          message: error instanceof Error ? error.message : 'An error occurred'
+        };
       }
     }
   },
@@ -259,79 +323,158 @@ export const userAppointmentResolvers:any = {
   Mutation: {
     createUserAppointment: async (
       _: unknown,
-      { input }: { input: AppointmentCreateInput },
+      {
+        doctorName,
+        selectDate,
+        hospitalName,
+        chiefComplaint,
+        patientName,
+        vitals,
+        remarks,
+        uploadPrescription,
+        uploadReport
+      }: {
+        doctorName: string;
+        selectDate: string;
+        hospitalName: string;
+        chiefComplaint: string;
+        patientName: string;
+        vitals?: string;
+        remarks?: string;
+        uploadPrescription?: string;
+        uploadReport?: string;
+      },
       { req }: Context
-    ): Promise<CreateAppointmentResponse> => {
+    ): Promise<StandardResponse> => {
+      // Debug logging
+      console.log("Received appointment parameters:", {
+        doctorName,
+        selectDate,
+        hospitalName,
+        chiefComplaint,
+        patientName,
+        vitals,
+        remarks,
+        uploadPrescription,
+        uploadReport
+      });
+
+      // Validate authorization token
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
         return formatResponse(false, null, "Authentication token is required");
       }
 
+      // Validate required fields
+      const requiredFields = {
+        doctorName,
+        selectDate,
+        hospitalName,
+        chiefComplaint,
+        patientName
+      };
+
+      const missingFields = Object.entries(requiredFields)
+        .filter(([_, value]) => !value)
+        .map(([key]) => key);
+
+      if (missingFields.length > 0) {
+        console.log("Missing required fields:", missingFields);
+        return formatResponse(
+          false,
+          null,
+          `Missing required fields: ${missingFields.join(', ')}`
+        );
+      }
+
       try {
-        console.log("Creating appointment with input:", input);
+        console.log("Creating appointment with params:", {
+          doctorName,
+          selectDate,
+          hospitalName,
+          chiefComplaint,
+          patientName,
+          remarks
+        });
 
         const appointment = await userAppointmentService.createUserAppointment(
-          input.doctorName,
-          input.selectDate,
-          input.hospitalName,
-          input.chiefComplaint,
-          input.patientName,
-          input.remarks || "",
+          doctorName,
+          selectDate,
+          hospitalName,
+          chiefComplaint,
+          patientName,
+          remarks || "",
           token
         );
+
+        console.log("Appointment created:", appointment);
 
         let mappedAppointment = mapAppointment(appointment);
         const uploadResults: Record<string, string | null> = {};
 
-        if (input.upload) {
-          const uploadTasks: Promise<UploadResult>[] = [];
+        // Handle uploads if provided
+        const uploadTasks: Promise<UploadResult>[] = [];
 
-          if (input.upload.uploadPrescription) {
-            uploadTasks.push(
-              appointmentUploadService.uploadPrescription(
-                input.upload.uploadPrescription,
-                appointment.appointmentId,
-                token
-              ).then(result => ({
-                success: result.success,
-                message: result.message,
-                prescription: {
-                  uploadPrescription: result.uploadPrescription || ''
+        if (uploadPrescription) {
+          uploadTasks.push(
+            appointmentUploadService.uploadPrescription(
+              uploadPrescription,
+              appointment.appointmentId,
+              token
+            ).then(result => ({
+              success: result.success,
+              message: result.message,
+              prescription: {
+                uploadPrescription: result.uploadPrescription || ''
+              }
+            }))
+          );
+        }
+
+        if (uploadReport) {
+          uploadTasks.push(
+            appointmentUploadService.uploadReport(
+              uploadReport,
+              appointment.appointmentId,
+              token
+            ).then(result => ({
+              success: result.success,
+              message: result.message,
+              report: {
+                uploadReport: result.uploadReport || ''
+              }
+            }))
+          );
+        }
+
+        if (uploadTasks.length > 0) {
+          try {
+            const uploadResultsArray = await Promise.all(uploadTasks);
+            console.log("Upload results:", uploadResultsArray);
+
+            uploadResultsArray.forEach(result => {
+              if (result.success) {
+                if (result.prescription) {
+                  uploadResults['prescription'] = result.prescription.uploadPrescription;
+                  mappedAppointment.uploadPrescription = result.prescription.uploadPrescription;
                 }
-              }))
+                if (result.report) {
+                  uploadResults['report'] = result.report.uploadReport;
+                  mappedAppointment.uploadReport = result.report.uploadReport;
+                }
+              }
+            });
+          } catch (uploadError) {
+            console.error("Error during file upload:", uploadError);
+            return formatResponse(
+              true,
+              {
+                appointment: mappedAppointment,
+                uploads: uploadResults,
+              },
+              "Appointment created successfully, but there were issues with file uploads"
             );
           }
-
-          if (input.upload.uploadReport) {
-            uploadTasks.push(
-              appointmentUploadService.uploadReport(
-                input.upload.uploadReport,
-                appointment.appointmentId,
-                token
-              ).then(result => ({
-                success: result.success,
-                message: result.message,
-                report: {
-                  uploadReport: result.uploadReport || ''
-                }
-              }))
-            );
-          }
-
-          const uploadResultsArray = await Promise.all(uploadTasks);
-
-          uploadResultsArray.forEach(result => {
-            if (result.success) {
-              if (result.prescription) {
-                uploadResults['prescription'] = result.prescription.uploadPrescription;
-                mappedAppointment.uploadPrescription = result.prescription.uploadPrescription;
-              }
-              if (result.report) {
-                uploadResults['report'] = result.report.uploadReport;
-                mappedAppointment.uploadReport = result.report.uploadReport;
-              }
-            }
-          });
         }
 
         return formatResponse(
@@ -344,7 +487,13 @@ export const userAppointmentResolvers:any = {
         );
       } catch (error) {
         console.error("Error creating appointment:", error);
-        return formatResponse(false, null, error instanceof Error ? error.message : 'An error occurred');
+        return formatResponse(
+          false,
+          null,
+          error instanceof Error
+            ? `Error creating appointment: ${error.message}`
+            : 'An unexpected error occurred while creating the appointment'
+        );
       }
     }
   }
