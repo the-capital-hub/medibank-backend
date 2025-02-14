@@ -25,10 +25,14 @@ export const userAppointmentTypeDefs = gql`
     hospitalName: String
     chiefComplaint: String
     PatientName: String
-    vitals: String
     remarks: String
     uploadPrescription: String
     uploadReport: String
+    bodyTemp:String
+    heartRate:String
+    respRate:String
+    bloodPres:String
+    spO2: String
     createdOn: DateTime
     updatedOn: DateTime
     user: User
@@ -70,13 +74,18 @@ export const userAppointmentTypeDefs = gql`
       hospitalName: String!
       chiefComplaint: String!
       patientName: String!
-      vitals: String
+       bodyTemp: String
+  heartRate:String
+  respRate: String
+  bloodPres: String
+  spO2: String
       remarks: String
       uploadPrescription: String
       uploadReport: String
+
     ): StandardResponse!
   }
 `;
 export const resolvers = {
-    JSON: GraphQLJSON
+  JSON: GraphQLJSON,
 };

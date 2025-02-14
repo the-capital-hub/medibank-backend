@@ -108,7 +108,13 @@ interface AppointmentResponse {
     hospitalName: string | null;
     chiefComplaint: string | null;
     PatientName: string | null;
-    vitals: string| "";
+    vitals: {
+      bodyTemp: string | "";
+      heartRate: string | "";
+      respRate: string | "";
+      bloodPres: string | "";
+      spO2: string | "";
+    }
     remarks: string | "";
     prescription: {
       prescriptionDocType: string | "";
@@ -282,7 +288,13 @@ export const userAppointmentResolvers:any = {
             hospitalName: appointment.hospitalName,
             chiefComplaint: appointment.chiefComplaint,
             PatientName: appointment.PatientName,
-            vitals: appointment.vitals || "",
+            vitals: {
+              bodyTemp: appointment.vitals.bodyTemp || "",
+              heartRate: appointment.vitals.heartRate || "",
+              respRate: appointment.vitals.respRate || "",
+              bloodPres: appointment.vitals.bloodPres || "",
+              spO2: appointment.vitals.spO2 || "",
+            },
             remarks: appointment.remarks || "",
             prescription: {
             prescriptionDocType: appointment.prescription?.prescriptionDocType || "",
@@ -353,7 +365,11 @@ export const userAppointmentResolvers:any = {
         hospitalName,
         chiefComplaint,
         patientName,
-        vitals,
+        bodyTemp,
+        heartRate,
+        respRate,
+        bloodPres,
+        spO2,
         remarks,
         uploadPrescription,
         uploadReport
@@ -363,7 +379,11 @@ export const userAppointmentResolvers:any = {
         hospitalName: string;
         chiefComplaint: string;
         patientName: string;
-        vitals?: string;
+        bodyTemp?: string;
+        heartRate?: string;
+        respRate?: string;
+        bloodPres?: string;
+        spO2?: string;
         remarks?: string;
         uploadPrescription?: string;
         uploadReport?: string;
@@ -405,7 +425,11 @@ export const userAppointmentResolvers:any = {
           chiefComplaint,
           patientName,
           remarks || "",
-          vitals || "",
+          bodyTemp || "",
+          heartRate || "",
+          respRate || "",
+          bloodPres || "",
+          spO2 || "",
           token
         );
         let mappedAppointment = mapAppointment(appointment);
