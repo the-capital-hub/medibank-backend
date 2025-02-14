@@ -7,6 +7,16 @@ export const userAppointmentTypeDefs = gql`
   scalar BigInt
   scalar DateTime
 
+
+
+  type AppointmentResponse {
+    status: Boolean!
+    data: JSON
+    message: String! 
+  }
+
+
+
   type UserAppointment {
     ID: ID
     appointmentId: String
@@ -24,6 +34,12 @@ export const userAppointmentTypeDefs = gql`
     user: User
     createdBy: User
     updatedBy: User
+  }
+
+  type Query {
+    me: User!
+    getUserAppointment(appointmentId: String!): AppointmentResponse!
+    getAllUserAppointments: StandardResponse!
   }
 
   type User {
@@ -46,11 +62,6 @@ export const userAppointmentTypeDefs = gql`
     message: String
   }
 
-  type Query {
-    me: User!
-    getUserAppointment(appointmentId: String!): UserAppointment
-    getAllUserAppointments: StandardResponse!
-  }
 
   type Mutation {
     createUserAppointment(

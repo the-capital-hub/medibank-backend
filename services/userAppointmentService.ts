@@ -63,6 +63,7 @@ export const userAppointmentService = {
     chiefComplaint: string,
     patientName: string,
     remarks: string,
+    vitals: string,
     token: string
   ) {
     if (!token) {
@@ -98,6 +99,7 @@ export const userAppointmentService = {
         chiefComplaint,
         PatientName: patientName,
         remarks,
+        vitals,
         userId,
         createdById: userId,
         updatedById: userId,
@@ -217,6 +219,7 @@ export const userAppointmentService = {
       selectDate: appointment.selectDate,
       hospitalName: appointment.hospitalName,
       PatientName: appointment.PatientName,
+      vitals: appointment.vitals,
       remarks: appointment.remarks,
       createdOn: appointment.createdOn,
       updatedOn: appointment.updatedOn,
