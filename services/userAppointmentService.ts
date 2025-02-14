@@ -13,7 +13,15 @@ interface AppointmentResponse {
   chiefComplaint: string;
   selectDate: string;
   remarks: string|null;
-  vitals: string | null;
+  vitals: {
+    bodyTemp: string|"";
+    heartRate: string|"";
+    respRate: string|"";
+    bloodPres: string|"";
+    spO2: string|"";
+
+  }
+
   hospitalName: string;
   PatientName: string;
   userId: string | null;
@@ -63,7 +71,11 @@ export const userAppointmentService = {
     chiefComplaint: string,
     patientName: string,
     remarks: string,
-    vitals: string,
+    bodyTemp: string,
+    heartRate: string,
+    respRate: string,
+    bloodPres: string,
+    spO2: string,
     token: string
   ) {
     if (!token) {
@@ -99,7 +111,11 @@ export const userAppointmentService = {
         chiefComplaint,
         PatientName: patientName,
         remarks,
-        vitals,
+        bodyTemp,
+        heartRate,
+        respRate,
+        bloodPres,
+        spO2,
         userId,
         createdById: userId,
         updatedById: userId,
@@ -162,7 +178,11 @@ export const userAppointmentService = {
         chiefComplaint: true,
         selectDate: true,
         remarks: true,
-        vitals: true,
+        bodyTemp: true,
+        heartRate: true,
+        respRate: true,
+        bloodPres: true,
+        spO2: true,
         prescriptionDocType: true,
         uploadPrescription: true,
         reportDocType: true,
@@ -178,6 +198,11 @@ export const userAppointmentService = {
     }
   
     const {
+      bodyTemp,
+      heartRate,
+      respRate,
+      bloodPres,
+      spO2,
       prescriptionDocType,
       uploadPrescription,
       reportDocType,
@@ -191,6 +216,13 @@ export const userAppointmentService = {
       ID: ID.toString(),
       ...basicAppointmentData,
       userId: userId ? userId.toString() : null,
+      vitals:{
+        bodyTemp: bodyTemp || '',
+        heartRate: heartRate || '',
+        respRate: respRate || '',
+        bloodPres: bloodPres || '',
+        spO2: spO2 || '',
+      },
       prescription: {
         prescriptionDocType: prescriptionDocType || null,
         uploadPrescription: uploadPrescription || null,
@@ -219,7 +251,11 @@ export const userAppointmentService = {
       selectDate: appointment.selectDate,
       hospitalName: appointment.hospitalName,
       PatientName: appointment.PatientName,
-      vitals: appointment.vitals,
+      bodyTemp: appointment.bodyTemp,
+      heartRate: appointment.heartRate,
+      respRate: appointment.respRate,
+      bloodPres: appointment.bloodPres,
+      spO2: appointment.spO2,
       remarks: appointment.remarks,
       createdOn: appointment.createdOn,
       updatedOn: appointment.updatedOn,

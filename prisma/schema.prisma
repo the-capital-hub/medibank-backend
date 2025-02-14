@@ -56,7 +56,11 @@ model UserAppointment {
   uploadPrescription String?
   reportDocType String?
   uploadReport String?
-  vitals String?
+  bodyTemp      String?
+  heartRate     String?
+  respRate      String?
+  bloodPres     String?
+  spO2          String?
   doctorImage     String?
   createdById     BigInt
   createdBy       UserMaster @relation("CreatedByRelation", fields: [createdById], references: [ID])
