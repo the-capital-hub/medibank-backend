@@ -185,9 +185,7 @@ function formatUserResponse(
 
 function formatResponse<T>(status: boolean, data: T | null = null, message = "") {
   try {
-    // First, let's log the incoming data
-    console.log('formatResponse input:', { status, data, message });
-
+  
     // Custom replacer function to handle BigInt and Date objects
     const replacer = (key: string, value: any) => {
       if (typeof value === 'bigint') {
@@ -208,9 +206,6 @@ function formatResponse<T>(status: boolean, data: T | null = null, message = "")
     
     // Then parse it back to ensure it's valid JSON
     const serializedData = data ? JSON.parse(stringifiedData) : null;
-    
-    // Log the output before returning
-    console.log('formatResponse output:', { status, serializedData, message });
     
     return { status, data: serializedData, message };
   } catch (error) {
@@ -268,8 +263,6 @@ export const userAppointmentResolvers:any = {
         await getAuthenticatedUser(req);
         
         const appointment = await userAppointmentService.getAppointmentByAppointmentId(appointmentId);
-        console.log("Raw appointment data:", appointment);
-    
         if (!appointment) {
           return {
             status: false,
@@ -301,10 +294,6 @@ export const userAppointmentResolvers:any = {
           },
           message: "Appointment fetched successfully"
         };
-    
-        // Debug log the final response
-        console.log("Final response:", JSON.stringify(response, null, 2));
-    
         return response;
       } catch (error) {
         console.error("Error fetching appointment:", error);
@@ -381,19 +370,6 @@ export const userAppointmentResolvers:any = {
       },
       { req }: Context
     ): Promise<StandardResponse> => {
-      // Debug logging
-      console.log("Received appointment parameters:", {
-        doctorName,
-        selectDate,
-        hospitalName,
-        chiefComplaint,
-        patientName,
-        vitals,
-        remarks,
-        uploadPrescription,
-        uploadReport
-      });
-
       // Validate authorization token
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
@@ -414,7 +390,6 @@ export const userAppointmentResolvers:any = {
         .map(([key]) => key);
 
       if (missingFields.length > 0) {
-        console.log("Missing required fields:", missingFields);
         return formatResponse(
           false,
           null,
@@ -423,15 +398,6 @@ export const userAppointmentResolvers:any = {
       }
 
       try {
-        console.log("Creating appointment with params:", {
-          doctorName,
-          selectDate,
-          hospitalName,
-          chiefComplaint,
-          patientName,
-          remarks
-        });
-
         const appointment = await userAppointmentService.createUserAppointment(
           doctorName,
           selectDate,
@@ -442,9 +408,6 @@ export const userAppointmentResolvers:any = {
           vitals || "",
           token
         );
-
-        console.log("Appointment created:", appointment);
-
         let mappedAppointment = mapAppointment(appointment);
         const uploadResults: Record<string, string | null> = {};
 
@@ -486,8 +449,6 @@ export const userAppointmentResolvers:any = {
         if (uploadTasks.length > 0) {
           try {
             const uploadResultsArray = await Promise.all(uploadTasks);
-            console.log("Upload results:", uploadResultsArray);
-
             uploadResultsArray.forEach(result => {
               if (result.success) {
                 if (result.prescription) {
@@ -501,7 +462,6 @@ export const userAppointmentResolvers:any = {
               }
             });
           } catch (uploadError) {
-            console.error("Error during file upload:", uploadError);
             return formatResponse(
               true,
               {
