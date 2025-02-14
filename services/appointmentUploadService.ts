@@ -50,12 +50,12 @@ const getExtensionFromMimetype = (mime: string): string => {
 };
 
 const getMimeTypeLabel = (mimeType: string): string => {
-  const typeMap: Record<string, string> = {
-    'image/jpeg': 'JPG',
-    'image/png': 'PNG',
-    'application/pdf': 'PDF'
-  };
-  return typeMap[mimeType] || 'Unknown';
+  if (mimeType.startsWith('image/')) {
+    return 'Image';
+  } else if (mimeType === 'application/pdf') {
+    return 'PDF';
+  }
+  return 'Unknown';
 };
 
 const parseBase64File = (base64Data: string) => {

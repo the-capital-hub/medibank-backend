@@ -48,12 +48,7 @@ interface UploadFields {
   uploadReport: string | null;
 }
 
-interface MetadataFields {
-  createdAt?: Date;
-  updatedAt?: Date;
-  createdById?: string | bigint | null;
-  updatedById?: string | bigint | null;
-}
+
 
 interface StandardResponse {
   status: boolean;
@@ -89,7 +84,7 @@ interface AppointmentCreateInput {
 }
 
 // Combined types
-type AppointmentType = BaseAppointment & UploadFields & MetadataFields;
+type AppointmentType = BaseAppointment & UploadFields ;
 
 // Response Types
 interface UploadResult {
@@ -113,10 +108,16 @@ interface AppointmentResponse {
     hospitalName: string | null;
     chiefComplaint: string | null;
     PatientName: string | null;
-    vitals: string | null;
-    remarks: string | null;
-    uploadPrescription: string | null;
-    uploadReport: string | null;
+    vitals: string| "";
+    remarks: string | "";
+    prescription: {
+      prescriptionDocType: string | "";
+      uploadPrescription: string | "";
+    };
+    report: {
+      reportDocType: string | "";
+      uploadReport: string | ""
+    };
   } | null;
   message: string;
 }
@@ -184,13 +185,38 @@ function formatUserResponse(
 
 function formatResponse<T>(status: boolean, data: T | null = null, message = "") {
   try {
-    const serializedData = data ? JSON.parse(JSON.stringify(data, (_, value) =>
-      typeof value === 'bigint' ? value.toString() : value
-    )) : null;
+  
+    // Custom replacer function to handle BigInt and Date objects
+    const replacer = (key: string, value: any) => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      // Handle undefined values
+      if (value === undefined) {
+        return null;
+      }
+      return value;
+    };
+
+    // First stringify with our custom replacer
+    const stringifiedData = JSON.stringify(data, replacer);
+    
+    // Then parse it back to ensure it's valid JSON
+    const serializedData = data ? JSON.parse(stringifiedData) : null;
+    
     return { status, data: serializedData, message };
   } catch (error) {
-    console.error('Error formatting response:', error);
-    return { status: false, data: null, message: 'Error processing response' };
+    // Detailed error logging
+    console.error('Error in formatResponse:', error);
+    console.error('Failed to serialize data:', data);
+    return { 
+      status: false, 
+      data: null, 
+      message: error instanceof Error ? `Serialization error: ${error.message}` : 'Error processing response' 
+    };
   }
 }
 
@@ -205,10 +231,6 @@ function mapAppointment(data: any): AppointmentType {
     remarks: ensureString(data.remarks),
     uploadPrescription: ensureString(data.prescription?.uploadPrescription),
     uploadReport: ensureString(data.report?.uploadReport),
-    createdAt: data.createdAt ? new Date(data.createdAt) : undefined,
-    updatedAt: data.updatedAt ? new Date(data.updatedAt) : undefined,
-    createdById: serializeBigInt(data.createdById),
-    updatedById: serializeBigInt(data.updatedById)
   };
 }
 
@@ -239,11 +261,8 @@ export const userAppointmentResolvers:any = {
     ): Promise<AppointmentResponse> => {
       try {
         await getAuthenticatedUser(req);
-        console.log("Fetching appointment with ID:", appointmentId);
         
         const appointment = await userAppointmentService.getAppointmentByAppointmentId(appointmentId);
-        console.log("Raw appointment data:", appointment);
-
         if (!appointment) {
           return {
             status: false,
@@ -251,26 +270,31 @@ export const userAppointmentResolvers:any = {
             message: `No appointment found with ID: ${appointmentId}`
           };
         }
-
-        const mappedData = {
-          ID: ensureString(appointment.ID),
-          appointmentId: ensureString(appointment.appointmentId),
-          doctorName: ensureString(appointment.doctorName),
-          selectDate: ensureString(appointment.selectDate),
-          hospitalName: ensureString(appointment.hospitalName),
-          chiefComplaint: ensureString(appointment.chiefComplaint),
-          PatientName: ensureString(appointment.PatientName),
-          vitals: ensureString(appointment.vitals),
-          remarks: ensureString(appointment.remarks),
-          uploadPrescription: ensureString(appointment.prescription?.uploadPrescription),
-          uploadReport: ensureString(appointment.report?.uploadReport),
-        };
-
-        return {
+    
+        // Create the response object EXACTLY as expected by GraphQL
+        const response = {
           status: true,
-          data: mappedData,
+          data: {
+            ID: String(appointment.ID),
+            appointmentId: appointment.appointmentId,
+            doctorName: appointment.doctorName,
+            selectDate: appointment.selectDate,
+            hospitalName: appointment.hospitalName,
+            chiefComplaint: appointment.chiefComplaint,
+            PatientName: appointment.PatientName,
+            vitals: appointment.vitals || "",
+            remarks: appointment.remarks || "",
+            prescription: {
+            prescriptionDocType: appointment.prescription?.prescriptionDocType || "",
+            uploadPrescription: appointment.prescription?.uploadPrescription || ""},
+            report: {
+            reportDocType: appointment.report?.reportDocType || "",
+            uploadReport: appointment.report?.uploadReport || ""
+            },
+          },
           message: "Appointment fetched successfully"
         };
+        return response;
       } catch (error) {
         console.error("Error fetching appointment:", error);
         return {
@@ -346,19 +370,6 @@ export const userAppointmentResolvers:any = {
       },
       { req }: Context
     ): Promise<StandardResponse> => {
-      // Debug logging
-      console.log("Received appointment parameters:", {
-        doctorName,
-        selectDate,
-        hospitalName,
-        chiefComplaint,
-        patientName,
-        vitals,
-        remarks,
-        uploadPrescription,
-        uploadReport
-      });
-
       // Validate authorization token
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
@@ -379,7 +390,6 @@ export const userAppointmentResolvers:any = {
         .map(([key]) => key);
 
       if (missingFields.length > 0) {
-        console.log("Missing required fields:", missingFields);
         return formatResponse(
           false,
           null,
@@ -388,15 +398,6 @@ export const userAppointmentResolvers:any = {
       }
 
       try {
-        console.log("Creating appointment with params:", {
-          doctorName,
-          selectDate,
-          hospitalName,
-          chiefComplaint,
-          patientName,
-          remarks
-        });
-
         const appointment = await userAppointmentService.createUserAppointment(
           doctorName,
           selectDate,
@@ -404,11 +405,9 @@ export const userAppointmentResolvers:any = {
           chiefComplaint,
           patientName,
           remarks || "",
+          vitals || "",
           token
         );
-
-        console.log("Appointment created:", appointment);
-
         let mappedAppointment = mapAppointment(appointment);
         const uploadResults: Record<string, string | null> = {};
 
@@ -450,8 +449,6 @@ export const userAppointmentResolvers:any = {
         if (uploadTasks.length > 0) {
           try {
             const uploadResultsArray = await Promise.all(uploadTasks);
-            console.log("Upload results:", uploadResultsArray);
-
             uploadResultsArray.forEach(result => {
               if (result.success) {
                 if (result.prescription) {
@@ -465,7 +462,6 @@ export const userAppointmentResolvers:any = {
               }
             });
           } catch (uploadError) {
-            console.error("Error during file upload:", uploadError);
             return formatResponse(
               true,
               {
