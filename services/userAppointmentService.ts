@@ -134,14 +134,14 @@ export const userAppointmentService = {
     if (!token) {
       throw new Error("Token is required");
     }
-
+  
     const decoded = verifyToken(token);
     if (!decoded?.userId) {
       throw new Error("Invalid token");
     }
-
+  
     const userId = BigInt(decoded.userId);
-
+  
     const appointments = await prisma.userAppointment.findMany({
       where: {
         userId: userId,
@@ -158,14 +158,52 @@ export const userAppointmentService = {
         createdOn: 'desc',
       },
     });
-
-    return appointments.map(appointment => ({
-      ...appointment,
-      ID: appointment.ID.toString()
-    }));
+  
+    return appointments.map(appointment => {
+      // Format the date to MMM-DD,YYYY (e.g., Oct-25,2024)
+      let formattedDate = appointment.selectDate;
+      
+      try {
+        if (appointment.selectDate) {
+          const date = new Date(appointment.selectDate);
+          
+          // Check if date is valid
+          if (!isNaN(date.getTime())) {
+            // Get month abbreviation (first 3 letters)
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = monthNames[date.getMonth()];
+            
+            // Get day with leading zero if needed
+            const day = date.getDate().toString().padStart(2, '0');
+            
+            // Get full year
+            const year = date.getFullYear();
+            
+            // Format as MMM-DD,YYYY
+            formattedDate = `${month}-${day},${year}`;
+          }
+        }
+      } catch (error) {
+        console.error(`Error formatting date for appointment ${appointment.appointmentId}:`, error);
+        // Keep the original date if there's an error
+      }
+      
+      return {
+        ...appointment,
+        ID: appointment.ID.toString(),
+        selectDate: formattedDate
+      };
+    });
   },
 
-  async getAppointmentByAppointmentId(appointmentId: string): Promise<AppointmentResponse> {
+  async getAppointmentByAppointmentId(appointmentId: string, token: string): Promise<AppointmentResponse> {
+    const decodedToken = verifyToken(token);
+    if (!decodedToken?.userId) {
+      throw new Error("Invalid token");
+    }
+    const authenticatedUserId = BigInt(decodedToken.userId);
+   
     const appointment = await prisma.userAppointment.findUnique({
       where: {
         appointmentId,
@@ -196,6 +234,37 @@ export const userAppointmentService = {
     if (!appointment) {
       throw new Error("Appointment not found");
     }
+    if (appointment.userId !== authenticatedUserId) {
+      throw new Error("Unauthorized access to appointment");
+    }
+  
+    // Format the selectDate if it exists
+    let formattedDate = appointment.selectDate;
+    try {
+      if (appointment.selectDate) {
+        const date = new Date(appointment.selectDate);
+        
+        // Check if date is valid
+        if (!isNaN(date.getTime())) {
+          // Get month abbreviation (first 3 letters)
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const month = monthNames[date.getMonth()];
+          
+          // Get day with leading zero if needed
+          const day = date.getDate().toString().padStart(2, '0');
+          
+          // Get full year
+          const year = date.getFullYear();
+          
+          // Format as MMM-DD,YYYY
+          formattedDate = `${month}-${day},${year}`;
+        }
+      }
+    } catch (error) {
+      console.error(`Error formatting date for appointment ${appointmentId}:`, error);
+      // Keep the original date if there's an error
+    }
   
     const {
       bodyTemp,
@@ -209,14 +278,16 @@ export const userAppointmentService = {
       uploadReport,
       ID,
       userId,
+      selectDate,  // Destructure the original selectDate
       ...basicAppointmentData
     } = appointment;
   
     return {
       ID: ID.toString(),
       ...basicAppointmentData,
+      selectDate: formattedDate,  // Use the formatted date
       userId: userId ? userId.toString() : null,
-      vitals:{
+      vitals: {
         bodyTemp: bodyTemp || '',
         heartRate: heartRate || '',
         respRate: respRate || '',
