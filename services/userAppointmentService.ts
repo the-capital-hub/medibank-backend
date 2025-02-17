@@ -21,7 +21,7 @@ interface AppointmentResponse {
     spO2: string|"";
 
   }
-
+  userType: string |null;
   hospitalName: string;
   PatientName: string;
   userId: string | null;
@@ -141,6 +141,15 @@ export const userAppointmentService = {
     }
   
     const userId = BigInt(decoded.userId);
+    const user = await prisma.userMaster.findUnique({
+      where: { ID: userId },
+      select: { UserType: true }
+    });
+  
+      
+    if (!user) {
+      throw new Error("User not found");
+    }
   
     const appointments = await prisma.userAppointment.findMany({
       where: {
@@ -158,6 +167,7 @@ export const userAppointmentService = {
         createdOn: 'desc',
       },
     });
+    const userType = user.UserType ?? "UNKNOWN";
   
     return appointments.map(appointment => {
       // Format the date to MMM-DD,YYYY (e.g., Oct-25,2024)
@@ -192,7 +202,8 @@ export const userAppointmentService = {
       return {
         ...appointment,
         ID: appointment.ID.toString(),
-        selectDate: formattedDate
+        selectDate: formattedDate,
+        userType: userType
       };
     });
   },
@@ -203,6 +214,15 @@ export const userAppointmentService = {
       throw new Error("Invalid token");
     }
     const authenticatedUserId = BigInt(decodedToken.userId);
+    const user = await prisma.userMaster.findUnique({
+      where: { ID: authenticatedUserId },
+      select: { UserType: true }
+    });
+  
+      
+    if (!user) {
+      throw new Error("User not found");
+    }
    
     const appointment = await prisma.userAppointment.findUnique({
       where: {
@@ -287,6 +307,7 @@ export const userAppointmentService = {
       ...basicAppointmentData,
       selectDate: formattedDate,  // Use the formatted date
       userId: userId ? userId.toString() : null,
+      userType: user.UserType,
       vitals: {
         bodyTemp: bodyTemp || '',
         heartRate: heartRate || '',

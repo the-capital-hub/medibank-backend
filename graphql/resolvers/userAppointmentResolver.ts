@@ -3,7 +3,6 @@ import { Context } from "../../types/context";
 import { userService } from "../../services/userService";
 import { appointmentUploadService } from "../../services/appointmentUploadService";
 
-
 interface SimpleAppointment {
   ID: string | bigint;
   appointmentId: string;
@@ -11,6 +10,7 @@ interface SimpleAppointment {
   doctorName: string;
   chiefComplaint: string;
   selectDate: string;
+  userType: string | null; // Added userType
 }
 
 interface SimpleAppointmentResponse {
@@ -27,10 +27,9 @@ function mapSimpleAppointment(data: any): SimpleAppointment {
     doctorName: ensureString(data.doctorName) || '',
     chiefComplaint: ensureString(data.chiefComplaint) || '',
     selectDate: ensureString(data.selectDate) || '',
+    userType: ensureString(data.userType), // Added userType mapping
   };
 }
-
-
 
 // Base interfaces
 interface BaseAppointment {
@@ -41,14 +40,13 @@ interface BaseAppointment {
   chiefComplaint: string;
   patientName?: string;
   remarks: string | null;
+  userType: string | null; // Added userType
 }
 
 interface UploadFields {
   uploadPrescription: string | null;
   uploadReport: string | null;
 }
-
-
 
 interface StandardResponse {
   status: boolean;
@@ -76,6 +74,7 @@ interface AppointmentCreateInput {
   hospitalName: string;
   chiefComplaint: string;
   patientName: string;
+  userType?: string;
   remarks?: string;
   upload?: {
     uploadPrescription?: string;
@@ -84,7 +83,7 @@ interface AppointmentCreateInput {
 }
 
 // Combined types
-type AppointmentType = BaseAppointment & UploadFields ;
+type AppointmentType = BaseAppointment & UploadFields;
 
 // Response Types
 interface UploadResult {
@@ -108,6 +107,7 @@ interface AppointmentResponse {
     hospitalName: string | null;
     chiefComplaint: string | null;
     PatientName: string | null;
+    userType: string | null;
     vitals: {
       bodyTemp: string | "";
       heartRate: string | "";
@@ -136,22 +136,7 @@ interface UserResponse {
   message: string;
 }
 
-interface AppointmentListResponse {
-  status: boolean;
-  data: AppointmentType[] | null;
-  message: string;
-}
-
-interface CreateAppointmentResponse {
-  status: boolean;
-  data: {
-    appointment: AppointmentType;
-    uploads: Record<string, string | null>;
-  } | null;
-  message: string;
-}
-
-// Helper functions
+// Helper functions remain the same
 function serializeBigInt(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   return value.toString();
@@ -162,20 +147,6 @@ function ensureString(value: any): string | null {
   return String(value);
 }
 
-interface StandardResponse {
-  status: boolean;
-  data: any | null;
-  message: string;
-}
-
-function formatDate(date: Date | string | null | undefined): string | null {
-  if (!date) return null;
-  try {
-    return new Date(date).toISOString();
-  } catch {
-    return null;
-  }
-}
 
 function formatUserResponse(
   status: boolean,
@@ -193,6 +164,7 @@ interface ValidationResult {
   isValid: boolean;
   errors: string[];
 }
+
 function validateAppointmentInput(input: {
   doctorName: string;
   selectDate: string;
@@ -202,7 +174,6 @@ function validateAppointmentInput(input: {
 }): ValidationResult {
   const errors: string[] = [];
   
-  // Check for empty or whitespace-only values
   if (!input.doctorName?.trim()) {
     errors.push("Doctor name is required");
   }
@@ -219,7 +190,6 @@ function validateAppointmentInput(input: {
     errors.push("Chief complaint is required");
   }
   
-  // Validate date format and value
   if (!input.selectDate) {
     errors.push("Date is required");
   } else {
@@ -247,8 +217,6 @@ function validateAppointmentInput(input: {
 
 function formatResponse<T>(status: boolean, data: T | null = null, message = "") {
   try {
-  
-    // Custom replacer function to handle BigInt and Date objects
     const replacer = (key: string, value: any) => {
       if (typeof value === 'bigint') {
         return value.toString();
@@ -256,22 +224,17 @@ function formatResponse<T>(status: boolean, data: T | null = null, message = "")
       if (value instanceof Date) {
         return value.toISOString();
       }
-      // Handle undefined values
       if (value === undefined) {
         return null;
       }
       return value;
     };
 
-    // First stringify with our custom replacer
     const stringifiedData = JSON.stringify(data, replacer);
-    
-    // Then parse it back to ensure it's valid JSON
     const serializedData = data ? JSON.parse(stringifiedData) : null;
     
     return { status, data: serializedData, message };
   } catch (error) {
-    // Detailed error logging
     console.error('Error in formatResponse:', error);
     console.error('Failed to serialize data:', data);
     return { 
@@ -289,8 +252,9 @@ function mapAppointment(data: any): AppointmentType {
     selectDate: ensureString(data.selectDate) || '',
     hospitalName: ensureString(data.hospitalName) || '',
     chiefComplaint: ensureString(data.chiefComplaint) || '',
-    patientName: ensureString(data.PatientName)|| undefined,
+    patientName: ensureString(data.PatientName) || undefined,
     remarks: ensureString(data.remarks),
+    userType: ensureString(data.userType), // Added userType mapping
     uploadPrescription: ensureString(data.prescription?.uploadPrescription),
     uploadReport: ensureString(data.report?.uploadReport),
   };
@@ -301,6 +265,7 @@ async function getAuthenticatedUser(req: Context['req']): Promise<string> {
   if (!userId) throw new Error("User not authenticated");
   return userId;
 }
+
 
 // Main resolvers
 export const userAppointmentResolvers:any = {
@@ -347,6 +312,7 @@ export const userAppointmentResolvers:any = {
             hospitalName: appointment.hospitalName,
             chiefComplaint: appointment.chiefComplaint,
             PatientName: appointment.PatientName,
+            userType: appointment.userType || "",
             vitals: {
               bodyTemp: appointment.vitals.bodyTemp || "",
               heartRate: appointment.vitals.heartRate || "",
