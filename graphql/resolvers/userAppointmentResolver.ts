@@ -189,6 +189,62 @@ function formatUserResponse(
   };
 }
 
+interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+function validateAppointmentInput(input: {
+  doctorName: string;
+  selectDate: string;
+  hospitalName: string;
+  chiefComplaint: string;
+  patientName: string;
+}): ValidationResult {
+  const errors: string[] = [];
+  
+  // Check for empty or whitespace-only values
+  if (!input.doctorName?.trim()) {
+    errors.push("Doctor name is required");
+  }
+  
+  if (!input.patientName?.trim()) {
+    errors.push("Patient name is required");
+  }
+  
+  if (!input.hospitalName?.trim()) {
+    errors.push("Hospital name is required");
+  }
+  
+  if (!input.chiefComplaint?.trim()) {
+    errors.push("Chief complaint is required");
+  }
+  
+  // Validate date format and value
+  if (!input.selectDate) {
+    errors.push("Date is required");
+  } else {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(input.selectDate)) {
+      errors.push("Invalid date format. Please use YYYY-MM-DD format");
+    } else {
+      const selectedDate = new Date(input.selectDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (isNaN(selectedDate.getTime())) {
+        errors.push("Invalid date value");
+      } else if (selectedDate < today) {
+        errors.push("Appointment date cannot be in the past");
+      }
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
 function formatResponse<T>(status: boolean, data: T | null = null, message = "") {
   try {
   
@@ -266,9 +322,12 @@ export const userAppointmentResolvers:any = {
       { req }: Context
     ): Promise<AppointmentResponse> => {
       try {
-        await getAuthenticatedUser(req);
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) {
+          throw new Error('Authorization token is required');
+        }
         
-        const appointment = await userAppointmentService.getAppointmentByAppointmentId(appointmentId);
+        const appointment = await userAppointmentService.getAppointmentByAppointmentId(appointmentId, token);
         if (!appointment) {
           return {
             status: false,
@@ -390,87 +449,99 @@ export const userAppointmentResolvers:any = {
       },
       { req }: Context
     ): Promise<StandardResponse> => {
-      // Validate authorization token
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return formatResponse(false, null, "Authentication token is required");
-      }
-
-      // Validate required fields
-      const requiredFields = {
-        doctorName,
-        selectDate,
-        hospitalName,
-        chiefComplaint,
-        patientName
-      };
-
-      const missingFields = Object.entries(requiredFields)
-        .filter(([_, value]) => !value)
-        .map(([key]) => key);
-
-      if (missingFields.length > 0) {
-        return formatResponse(
-          false,
-          null,
-          `Missing required fields: ${missingFields.join(', ')}`
-        );
-      }
-
       try {
-        const appointment = await userAppointmentService.createUserAppointment(
+        // Validate authorization token
+        const token = req.headers.authorization?.split(" ")[1];
+        if (!token) {
+          return formatResponse(false, null, "Authentication token is required");
+        }
+
+        // Validate required fields
+        const validation = validateAppointmentInput({
           doctorName,
           selectDate,
           hospitalName,
           chiefComplaint,
-          patientName,
-          remarks || "",
-          bodyTemp || "",
-          heartRate || "",
-          respRate || "",
-          bloodPres || "",
-          spO2 || "",
+          patientName
+        });
+
+        if (!validation.isValid) {
+          return formatResponse(
+            false,
+            null,
+            `Validation failed: ${validation.errors.join('; ')}`
+          );
+        }
+
+        // Sanitize input by trimming whitespace
+        const sanitizedInput = {
+          doctorName: doctorName.trim(),
+          selectDate,
+          hospitalName: hospitalName.trim(),
+          chiefComplaint: chiefComplaint.trim(),
+          patientName: patientName.trim(),
+          remarks: remarks?.trim() || "",
+          bodyTemp: bodyTemp?.trim() || "",
+          heartRate: heartRate?.trim() || "",
+          respRate: respRate?.trim() || "",
+          bloodPres: bloodPres?.trim() || "",
+          spO2: spO2?.trim() || ""
+        };
+
+        const appointment = await userAppointmentService.createUserAppointment(
+          sanitizedInput.doctorName,
+          sanitizedInput.selectDate,
+          sanitizedInput.hospitalName,
+          sanitizedInput.chiefComplaint,
+          sanitizedInput.patientName,
+          sanitizedInput.remarks,
+          sanitizedInput.bodyTemp,
+          sanitizedInput.heartRate,
+          sanitizedInput.respRate,
+          sanitizedInput.bloodPres,
+          sanitizedInput.spO2,
           token
         );
+
         let mappedAppointment = mapAppointment(appointment);
         const uploadResults: Record<string, string | null> = {};
 
-        // Handle uploads if provided
-        const uploadTasks: Promise<UploadResult>[] = [];
+        // Handle file uploads
+        if (uploadPrescription || uploadReport) {
+          const uploadTasks: Promise<UploadResult>[] = [];
 
-        if (uploadPrescription) {
-          uploadTasks.push(
-            appointmentUploadService.uploadPrescription(
-              uploadPrescription,
-              appointment.appointmentId,
-              token
-            ).then(result => ({
-              success: result.success,
-              message: result.message,
-              prescription: {
-                uploadPrescription: result.uploadPrescription || ''
-              }
-            }))
-          );
-        }
+          if (uploadPrescription) {
+            uploadTasks.push(
+              appointmentUploadService.uploadPrescription(
+                uploadPrescription,
+                appointment.appointmentId,
+                token
+              ).then(result => ({
+                success: result.success,
+                message: result.message,
+                prescription: {
+                  uploadPrescription: result.uploadPrescription || ''
+                }
+              }))
+            );
+          }
 
-        if (uploadReport) {
-          uploadTasks.push(
-            appointmentUploadService.uploadReport(
-              uploadReport,
-              appointment.appointmentId,
-              token
-            ).then(result => ({
-              success: result.success,
-              message: result.message,
-              report: {
-                uploadReport: result.uploadReport || ''
-              }
-            }))
-          );
-        }
+          if (uploadReport) {
+            uploadTasks.push(
+              appointmentUploadService.uploadReport(
+                uploadReport,
+                appointment.appointmentId,
+                token
+              ).then(result => ({
+                success: result.success,
+                message: result.message,
+                report: {
+                  uploadReport: result.uploadReport || ''
+                }
+              }))
+            );
+          }
 
-        if (uploadTasks.length > 0) {
           try {
             const uploadResultsArray = await Promise.all(uploadTasks);
             uploadResultsArray.forEach(result => {
@@ -518,3 +589,4 @@ export const userAppointmentResolvers:any = {
     }
   }
 };
+
