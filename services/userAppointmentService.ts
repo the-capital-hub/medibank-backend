@@ -2,8 +2,8 @@ import prisma from "../models/prismaClient";
 import { verifyToken } from "../utils/jwt";
 import { UserAppointment, UserMaster } from "@prisma/client";
 
-const defaultDocPic = "https://shorturl.at/bp1wb";
-const defaultPatientPic = "https://shorturl.at/n5anT";
+const defaultDocPic = "https://profilepic-medibank.s3.ap-south-1.amazonaws.com/Misc/doc%20default.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIA2OAJUCQXPAVM2ETI%2F20250217%2Fap-south-1%2Fs3%2Faws4_request&X-Amz-Date=20250217T113612Z&X-Amz-Expires=300&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEEwaCmFwLXNvdXRoLTEiSDBGAiEAnu35oCgiHp2ixQTmUV6iLiAYEBUBivgYwpouhWeIrykCIQDAu6U2dQn%2Faj2v3Cv6ebzIeaVqVmvytBBvy%2BmkYX%2BsLirsAgh1EAAaDDcxNzI3OTcyODY4NiIM19eK57%2ByAcpEoPb9KskCpq0iyRv0dTjrwdumiebJ6F%2BBsNM9ccyiCLdhLosE3fmT%2FZU1xjDXNW%2FnX4h%2BWbKv5yItR0lueas82O7j6%2BTEdpDzx7T%2F2YN1UBR0mj4jLpTvXhw8jVjWltdixs7OaMkgBHvWJCMewWGy2RCV4tb%2Bc4DFtr7UP7XDAJcRetMwFJWDIlkZpYkfZiiOimb6fe4%2FOdhS8LuKD8wrOZTqDRGBFpvLNZG46Ux08ztjRCQlv6EyAoRVHIXFXe7myeMsM5Uy7W%2BTaul6EJ0uITFkuoTIMpzTWYlJuHYM4yApdj93YF%2Bof7Lwuo1c0DNdke7YjFAsXwQT6PQJ2fjO6r%2BeaIQ2DCdeeU6HyhcFFHk1QLtS3MUKQJakjks2t6rze5NjFZ%2FZZDtGZLisaNHy1x0PQMzHRKfNBr%2BDGQyz3EzRGKOwYDMKDmbGP7cPOiQwpPTLvQY6sgIJ%2FN7C5Cg4eJYD%2F3CNRye2Woc7EP%2BUHZ%2FGiimZ7rUM1mLWqub9CavinzdhF8Awxvzek0DU9pFSyQVZLpWQmtSwdUThnyiPwEMRE1whzLQ38UsipNTP5hRRX%2BXu%2BE4QA9qzrQY0A7pESoFDm0K7zCtKRRVd%2FWJWPtl3NgRzpg5sFfiiGfrhfXTsfyjpteuXUAbg%2BvmH0iqgVkWO2xyIka%2BQdMGALp%2Fr666%2BpBbLa%2BHAcijzHaOyjqORkCgO0ezyL%2F6YpL9%2FivVgWTyEJX%2FypmBAGrBSOxz3aUx2UdELbV34elAZpyC5o0CJNtAgP75RKXnJ4%2FM26z%2FwW%2BLUebYrN812XBMzcsJbMrNx3ueveb9Zvg9aCR4KuPLJxOqERHLcsQ7ADE1b6NqdZ5TGoXCiuIvqCLQ%3D&X-Amz-Signature=6d07eee4a6a961053c7ad046c734267087fe3432f6e1d8ebd9a38b3dd9c022dc&X-Amz-SignedHeaders=host&response-content-disposition=inline";
+
 
 interface AppointmentResponse {
   ID: string;
@@ -40,14 +40,6 @@ export const userAppointmentService = {
     return value ? value.toString() : null;
   },
 
-  async getDefaultImage(userId: bigint): Promise<string> {
-    const user = await prisma.userMaster.findUnique({
-      where: { ID: userId },
-      select: { UserType: true }
-    });
-    
-    return user?.UserType === 'DOCTOR' ? defaultDocPic : defaultPatientPic;
-  },
 
   async generateAppointmentId(mbid: string): Promise<string> {
     const appointmentCount = await prisma.userAppointment.count({
@@ -99,12 +91,12 @@ export const userAppointmentService = {
     }
 
     const appointmentId = await this.generateAppointmentId(user.MBID);
-    const defaultImage = await this.getDefaultImage(userId);
+
 
     const appointment = await prisma.userAppointment.create({
       data: {
         appointmentId,
-        doctorImage: defaultImage,
+        doctorImage: defaultDocPic,
         doctorName,
         selectDate,
         hospitalName,
