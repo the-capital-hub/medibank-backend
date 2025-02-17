@@ -81,14 +81,14 @@ export const userLabReportService = {
     if (!token) {
       throw new Error("Token is required");
     }
-  
+      
     const decoded = verifyToken(token);
     if (!decoded?.userId) {
       throw new Error("Invalid token");
     }
-  
+      
     const userId = BigInt(decoded.userId);
-  
+      
     const labReports = await prisma.userLabReport.findMany({
       where: {
         userId: userId,
@@ -100,22 +100,68 @@ export const userLabReportService = {
         labName: true,
         labReportType: true,
         selectDate: true,
-        docType: true, // Ensure this exists in your Prisma schema
-        uploadLabReport: true, // Ensure this exists in your Prisma schema
+        docType: true,
+        uploadLabReport: true,
       },
       orderBy: {
         createdOn: 'desc',
       },
     });
-  
-    return labReports.map(({ ID, docType, uploadLabReport, ...labReportData }) => ({
-      ID: ID.toString(),
-      ...labReportData,
-      report: {
-        docType: docType || null,
-        labReport: uploadLabReport || null,
-      },
-    }));
+      
+    return labReports.map(({ ID, docType, uploadLabReport, selectDate, labReportId, ...labReportData }) => {
+      // Format the date to MMM-DD,YYYY (e.g., Oct-25,2024)
+      let formattedDate = selectDate;
+      
+      try {
+        if (selectDate) {
+          let date: Date;
+          
+          // Handle different date formats
+          if (selectDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
+            // Format: DD-MM-YYYY
+            const [day, month, year] = selectDate.split('-').map(Number);
+            date = new Date(year, month - 1, day);
+          } else if (selectDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Format: YYYY-MM-DD
+            date = new Date(selectDate);
+          } else {
+            // Try to parse using Date constructor
+            date = new Date(selectDate);
+          }
+          
+          // Check if date is valid
+          if (!isNaN(date.getTime())) {
+            // Get month abbreviation (first 3 letters)
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = monthNames[date.getMonth()];
+            
+            // Get day with leading zero if needed
+            const day = date.getDate().toString().padStart(2, '0');
+            
+            // Get full year
+            const year = date.getFullYear();
+            
+            // Format as MMM-DD,YYYY
+            formattedDate = `${month}-${day},${year}`;
+          }
+        }
+      } catch (error) {
+        console.error(`Error formatting date for lab report ${labReportId}:`, error);
+        // Keep the original date if there's an error
+      }
+      
+      return {
+        ID: ID.toString(),
+        labReportId,
+        ...labReportData,
+        selectDate: formattedDate,
+        report: {
+          docType: docType || null,
+          labReport: uploadLabReport || null,
+        },
+      };
+    });
   },
   
   async getLabReportByLabReportId(labReportId: string) {

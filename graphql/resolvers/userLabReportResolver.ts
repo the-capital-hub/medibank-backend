@@ -111,6 +111,9 @@ export const userLabReportResolvers = {
       },
       { req }: Context
     ) => {
+      if(!args.labReportType || !args.selectDate || !args.labName || !args.doctorName || !args.selectFamilyMember) {
+        return formatResponse(false, null, "Missing required fields");
+      }
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
         return formatResponse(false, null, "Authentication token is required");
