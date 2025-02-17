@@ -170,12 +170,16 @@ export const userHospitalReportResolvers = {
       },
       { req }: Context
     ): Promise<HospitalReportResponse> => {
+ 
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
         return formatHospitalReportResponse(false, null, "Authentication token is required");
       }
 
       try {
+        if(!args.hospitalName||!args.selectDate||!args.doctorName||!args.procedure||!args.patientName) {
+          return formatHospitalReportResponse(false, null, "Hospital report creation failed. All fields are required.");
+        }
         const hospitalReport = await userHospitalReportService.createUserHospitalReport(
           args.hospitalName,
           args.selectDate,

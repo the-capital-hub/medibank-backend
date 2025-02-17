@@ -75,7 +75,6 @@ export const userHospitalReportService = {
 
     return this.serializeHospitalReport(report);
   },
-
   async getAllUserHospitalReports(token: string) {
     if (!token) {
       throw new Error("Token is required");
@@ -97,24 +96,70 @@ export const userHospitalReportService = {
         hospitalReportId: true,
         hospitalImage: true,
         hospitalName: true,
-        procedure:true,
+        procedure: true,
         selectDate: true,
-        docType: true, // Ensure this exists in your Prisma schema
-        uploadHospitalReport: true, // Ensure this exists in your Prisma schema
+        docType: true,
+        uploadHospitalReport: true,
       },
       orderBy: {
         createdOn: 'desc',
       },
     });
   
-    return hospitalReports.map(({ ID, docType, uploadHospitalReport, ...hospitalReportData }) => ({
-      ID: ID.toString(),
-      ...hospitalReportData,
-      report: {
-        docType: docType || null,
-        hospitalReport: uploadHospitalReport || null,
-      },
-    }));
+    return hospitalReports.map(({ ID, docType, uploadHospitalReport, selectDate, hospitalReportId, ...hospitalReportData }) => {
+      // Format the date to MMM-DD,YYYY (e.g., Oct-25,2024)
+      let formattedDate = selectDate;
+      
+      try {
+        if (selectDate) {
+          let date: Date;
+          
+          // Handle different date formats
+          if (selectDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
+            // Format: DD-MM-YYYY
+            const [day, month, year] = selectDate.split('-').map(Number);
+            date = new Date(year, month - 1, day);
+          } else if (selectDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Format: YYYY-MM-DD
+            date = new Date(selectDate);
+          } else {
+            // Try to parse using Date constructor
+            date = new Date(selectDate);
+          }
+          
+          // Check if date is valid
+          if (!isNaN(date.getTime())) {
+            // Get month abbreviation (first 3 letters)
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = monthNames[date.getMonth()];
+            
+            // Get day with leading zero if needed
+            const day = date.getDate().toString().padStart(2, '0');
+            
+            // Get full year
+            const year = date.getFullYear();
+            
+            // Format as MMM-DD,YYYY
+            formattedDate = `${month}-${day},${year}`;
+          }
+        }
+      } catch (error) {
+        console.error(`Error formatting date for hospital report ${hospitalReportId}:`, error);
+        // Keep the original date if there's an error
+      }
+      
+      return {
+        ID: ID.toString(),
+        hospitalReportId,
+        ...hospitalReportData,
+        selectDate: formattedDate,
+        report: {
+          docType: docType || null,
+          hospitalReport: uploadHospitalReport || null,
+        },
+      };
+    });
   },
 
   async getHospitalReportById(hospitalReportId: string) {
