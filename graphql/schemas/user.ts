@@ -58,7 +58,11 @@ type ResetPasswordResponse {
       date_of_birth: String!
       sex: String!
       Password: String!
-      UserType: String!
+      userType: String!
+      qualifications: String
+      collegeName: String
+      courseYear: String
+      licenseRegistrationNo: String
     ): StandardResponse
 
     sendRegistrationOtp(EmailID: String!, mobile_num: String!): StandardResponse

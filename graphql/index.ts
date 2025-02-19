@@ -7,6 +7,9 @@ import{userLabReportTypeDefs} from "./schemas/userLabReportSchema"
 import { userLabReportResolvers } from "./resolvers/userLabReportResolver";
 import { userHospitalReportTypeDefs } from "./schemas/userHospitalReportSchema";
 import { userHospitalReportResolvers } from "./resolvers/userHospitalReportResolver";
+import { addFamilyMemberSchemaTypeDefs } from "./schemas/addFamilyMember";
+import { addFamilyMemberResolver } from "./resolvers/addFamilyMemberResolver";
 
-export const typeDefs = mergeTypeDefs([userTypeDefs, userAppointmentTypeDefs, userLabReportTypeDefs, userHospitalReportTypeDefs]);
-export const resolvers = [userResolvers, userAppointmentResolvers, userLabReportResolvers, userHospitalReportResolvers];
+
+export const typeDefs = mergeTypeDefs([userTypeDefs, userAppointmentTypeDefs, userLabReportTypeDefs, userHospitalReportTypeDefs, addFamilyMemberSchemaTypeDefs]);
+export const resolvers = [userResolvers, userAppointmentResolvers, userLabReportResolvers, userHospitalReportResolvers, addFamilyMemberResolver];
