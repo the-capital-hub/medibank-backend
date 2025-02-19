@@ -23,10 +23,13 @@ model UserMaster {
   state           String?
   profile_Picture String?
 
+doctordetails     DoctorDetails[] @relation("DoctorDetails")
+createdDoctors    DoctorDetails[] @relation("CreatedByRelation")
+updatedDoctors    DoctorDetails[] @relation("UpdatedByRelation")
 
-  appointments            UserAppointment[] @relation("UserAppointments")
-  createdAppointments     UserAppointment[] @relation("CreatedByRelation")
-  updatedAppointments     UserAppointment[] @relation("UpdatedByRelation")
+appointments            UserAppointment[] @relation("UserAppointments")
+createdAppointments     UserAppointment[] @relation("CreatedByRelation")
+updatedAppointments     UserAppointment[] @relation("UpdatedByRelation")
 
 
   labReports             UserLabReport[]    @relation("UserLabReports")
@@ -37,6 +40,10 @@ model UserMaster {
   hospitalReports         UserHospitalReport[] @relation("UserHospitalReports")
   createdHospitalReports  UserHospitalReport[] @relation("HospitalReportCreatedBy")
   updatedHospitalReports  UserHospitalReport[] @relation("HospitalReportUpdatedBy")
+
+  familyMembers          AddFamilyMember[] @relation("AddFamilyMember")
+  createdFamilyMembers   AddFamilyMember[] @relation("CreatedByRelation")
+  updatedFamilyMembers   AddFamilyMember[] @relation("UpdatedByRelation")
 
 }
 model UserAppointment {
@@ -70,6 +77,29 @@ model UserAppointment {
   @@index([userId])
   @@index([createdById])
   @@index([updatedById])
+}
+
+model DoctorDetails{
+ID              BigInt     @id @default(autoincrement())
+licenseRegistrationNo String
+qualification String
+collegeName String
+courseYear String
+city String?
+state String?
+userId          BigInt
+user            UserMaster @relation("DoctorDetails", fields: [userId], references: [ID])
+createdOn       DateTime   @default(now())
+updatedOn       DateTime   @updatedAt
+createdById     BigInt
+createdBy       UserMaster @relation("CreatedByRelation", fields: [createdById], references: [ID])
+updatedById     BigInt?
+updatedBy       UserMaster? @relation("UpdatedByRelation", fields: [updatedById], references: [ID])
+
+@@index([userId])
+@@index([createdById])
+@@index([updatedById])
+
 }
 
 model UserLabReport {
@@ -117,6 +147,26 @@ hospitalReportId     String     @unique
   createdBy       UserMaster @relation("HospitalReportCreatedBy", fields: [createdById], references: [ID])
   updatedById     BigInt?
   updatedBy       UserMaster? @relation("HospitalReportUpdatedBy", fields: [updatedById], references: [ID])
+
+  @@index([userId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model AddFamilyMember{
+  ID              BigInt     @id @default(autoincrement())
+  familyMemberId     String     @unique
+  familyMemberName    String
+  familyMemberRelation    String
+  MBID String
+  userId          BigInt
+  user            UserMaster @relation("AddFamilyMember", fields: [userId], references: [ID])
+  createdOn       DateTime   @default(now())
+  updatedOn       DateTime   @updatedAt
+  createdById     BigInt
+  createdBy       UserMaster @relation("CreatedByRelation", fields: [createdById], references: [ID])
+  updatedById     BigInt?
+  updatedBy       UserMaster? @relation("UpdatedByRelation", fields: [updatedById], references: [ID])
 
   @@index([userId])
   @@index([createdById])

@@ -25,7 +25,7 @@ function restoreBigInt(obj: any): any {
 }
 export const userService = {
   async registerUser(
-    { EmailID, Password, fullname, mobile_num, city, state, date_of_birth, gender, sex, UserType }: any,
+    { EmailID, Password, fullname, mobile_num, city, state, date_of_birth, gender, sex, UserType, licenseRegistrationNo, qualification, collegeName, courseYear }: any,
     redisClient: any
   ) {
     // Check for missing required fields
@@ -93,7 +93,8 @@ const dateOfBirthWithTimestamp = `${date_of_birth}T12:00:00Z`;
     // Temporarily store user details in Redis
     const userData = { EmailID, Password, fullname, mobile_num, city, state,dateOfBirthWithTimestamp, gender, sex, UserType };
     await redisClient.set(`user:temp:${EmailID}`, JSON.stringify(userData), "EX", 600); // Expire in 10 minutes
-  
+  const doctorDetails = {  licenseRegistrationNo, qualification, collegeName, courseYear }
+    await redisClient.set(`user:temp:${EmailID}`, JSON.stringify(doctorDetails), "EX", 600); // Expire in 10 minutes
     return { message: "OTP sent to email and mobile. Please verify." };
   },
   
@@ -117,6 +118,7 @@ const dateOfBirthWithTimestamp = `${date_of_birth}T12:00:00Z`;
 
     // Retrieve temporary user data from Redis
     const userDataJson = await redis.get(`user:temp:${email}`);
+
     if (!userDataJson) {
       throw new Error("User data expired. Please register again.");
     }
@@ -139,7 +141,10 @@ const dateOfBirthWithTimestamp = `${date_of_birth}T12:00:00Z`;
         UserType: userData.UserType,
       },
     });
-
+if(userData.UserType==="doctor"){
+  const doctorDetailsJson = await redis.get(`user:temp:${email}`)||"";
+  const doctorData  = JSON.parse(doctorDetailsJson);
+}
     const token = generateToken({ userId: user.ID.toString() });  // Convert BigInt to String
 
     if (!token) {
