@@ -15,7 +15,14 @@ export const addFamilyMemberSchemaTypeDefs = gql`
     type Query {
         me: User!
         getAllFamilyMembers: StandardResponse!
+        deleteFamilyMember(familyMemberId: String!): deleteFamilyMemberResponse!
     }
+type deleteFamilyMemberResponse{
+    status: Boolean
+    data: JSON
+    message: String!
+    
+}
 
     type User {
     ID: BigInt!

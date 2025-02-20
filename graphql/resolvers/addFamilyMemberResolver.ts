@@ -15,10 +15,10 @@ interface FamilyMemberResponse {
 function formatResponse<T>(status: boolean, data: T | null = null, message = "") {
   try {
     const replacer = (key: string, value: any) => {
-      if (value === undefined) {
-        return null;
+      if (typeof value === "bigint") {
+        return value.toString(); // Convert BigInt to string
       }
-      return value;
+      return value === undefined ? null : value;
     };
 
     const stringifiedData = JSON.stringify(data, replacer);
@@ -26,14 +26,32 @@ function formatResponse<T>(status: boolean, data: T | null = null, message = "")
     
     return { status, data: serializedData, message };
   } catch (error) {
-    console.error('Error in formatResponse:', error);
-    return { 
-      status: false, 
-      data: null, 
-      message: error instanceof Error ? `Serialization error: ${error.message}` : 'Error processing response' 
+    console.error("Error in formatResponse:", error);
+    return {
+      status: false,
+      data: null,
+      message: error instanceof Error ? `Serialization error: ${error.message}` : "Error processing response",
     };
   }
 }
+
+// Function to format delete response
+function deleteFamilyMemberResponse(status: boolean, data: any, message: string) {
+  if (data && typeof data === "object") {
+    data = JSON.parse(
+      JSON.stringify(data, (key, value) =>
+        typeof value === "bigint" ? value.toString() : value
+      )
+    );
+  }
+
+  return {
+    status,
+    data,
+    message,
+  };
+}
+
 
 function validateFamilyMemberInput(input: {
   familyMemberName: string;
@@ -93,7 +111,30 @@ export const addFamilyMemberResolver = {
           error instanceof Error ? error.message : 'An error occurred while fetching family members'
         );
       }
-    }
+    },
+    deleteFamilyMember: async (_: any, { familyMemberId }: { familyMemberId: string }, { req }: Context) => {
+      try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) {
+          return formatResponse(false, null, "Authentication token is required");
+        }
+        const deletedFamilyMember = await addFamilyMemberService.deleteFamilyMember(familyMemberId, token);
+        return deleteFamilyMemberResponse(
+          true,
+          deletedFamilyMember,
+          "Family member deleted successfully"
+        )
+        
+        
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return deleteFamilyMemberResponse(
+          false,
+          null,
+          `Failed to delete family member: ${errorMessage}`
+        );
+      }
+    },
   },
 
   Mutation: {
@@ -161,6 +202,8 @@ export const addFamilyMemberResolver = {
             : 'An unexpected error occurred while creating the family member'
         );
       }
-    }
+    },
+
+  
   }
 };
