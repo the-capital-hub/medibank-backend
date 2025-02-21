@@ -4,42 +4,59 @@ import { hashPassword, comparePassword } from "../utils/bcrypt";
 import { generateToken } from "../utils/jwt";
 import { UserMaster } from "@prisma/client";
 import { otpService } from "./otpService";
+import { doctorService } from "./doctorService";
 
-// Utility to handle BigInt serialization in JSON
+// Enhanced utility to handle BigInt serialization in JSON
 function safeStringify(obj: any): string {
   return JSON.stringify(obj, (_, value) =>
     typeof value === "bigint" ? value.toString() : value
   );
 }
 
-// Restore BigInt values from JSON-parsed objects
+// Enhanced restore function for BigInt values
 function restoreBigInt(obj: any): any {
-  if (obj && typeof obj === "object") {
-    for (const key in obj) {
-      if (typeof obj[key] === "string" && /^\d+$/.test(obj[key])) {
-        obj[key] = BigInt(obj[key]);
+  if (!obj) return obj;
+  
+  if (typeof obj === "object") {
+    Object.keys(obj).forEach(key => {
+      const value = obj[key];
+      if (typeof value === "string" && /^\d+$/.test(value)) {
+        obj[key] = BigInt(value);
+      } else if (typeof value === "object") {
+        obj[key] = restoreBigInt(value);
       }
-    }
+    });
   }
   return obj;
 }
+
+// Utility to sanitize user object for response
+function sanitizeUserForResponse(user: UserMaster | null): any {
+  if (!user) return null;
+  
+  const sanitizedUser = {
+    ...user,
+    ID: user.ID.toString() // Ensure ID is always a string
+  };
+
+  return sanitizedUser;
+}
+
 export const userService = {
   async registerUser(
-    { EmailID, Password, fullname, mobile_num, city, state, date_of_birth, gender, sex, UserType, licenseRegistrationNo, qualification, collegeName, courseYear }: any,
+    { EmailID, Password, fullname, mobile_num, city, state, date_of_birth, gender, sex, UserType, licenseRegistrationNo, qualifications, collegeName, courseYear }: any,
     redisClient: any
   ) {
-    // Check for missing required fields
+    // Validation checks remain the same...
     if (!EmailID || !Password || !fullname || !mobile_num || !city || !state || !date_of_birth || !sex || !UserType) {
       throw new Error("Missing required fields for user registration.");
     }
   
-    // Email validation regex pattern
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
     if (EmailID && !emailRegex.test(EmailID)) {
       throw new Error("Invalid email format.");
     }
   
-    // Mobile number validation
     const mobileRegex = /^\+91\d{10}$/;
     const isConsecutive = (str: string) => {
       const numArray = str.split('').map(Number);
@@ -52,31 +69,25 @@ export const userService = {
     };
   
     const isRepeated = (str: string) => {
-      return /^(\d)\1{9}$/.test(str); // checks for repeated digits like 1111111111
+      return /^(\d)\1{9}$/.test(str);
     };
   
-    // Check if the mobile number format is valid
     if (mobile_num && !mobileRegex.test(mobile_num)) {
       throw new Error("Invalid mobile number format. It should be in the format +91xxxxxxxxxx.");
     }
   
-    // Extract the numeric part of the mobile number (after +91)
     const mobileDigits = mobile_num.slice(3);
   
-    // Check for repeated digits (e.g., +919999999999)
     if (isRepeated(mobileDigits)) {
       throw new Error("Mobile number cannot have repeated digits.");
     }
   
-    // Check for consecutive digits (e.g., +919876543210)
     if (isConsecutive(mobileDigits)) {
       throw new Error("Mobile number cannot have consecutive digits.");
     }
   
-// Append static timestamp to date_of_birth
-const dateOfBirthWithTimestamp = `${date_of_birth}T12:00:00Z`;
+    const dateOfBirthWithTimestamp = `${date_of_birth}T12:00:00Z`;
 
-    // Check if the email or mobile number is already registered
     const existingEmail = await prisma.userMaster.findUnique({ where: { EmailID } });
     if (existingEmail) {
       throw new Error("A user with this email already exists.");
@@ -87,84 +98,107 @@ const dateOfBirthWithTimestamp = `${date_of_birth}T12:00:00Z`;
       throw new Error("A user with this mobile number already exists.");
     }
   
-    // Generate and send OTP
     await otpService.generateAndSendOtp(EmailID, mobile_num);
   
-    // Temporarily store user details in Redis
-    const userData = { EmailID, Password, fullname, mobile_num, city, state,dateOfBirthWithTimestamp, gender, sex, UserType };
-    await redisClient.set(`user:temp:${EmailID}`, JSON.stringify(userData), "EX", 600); // Expire in 10 minutes
-  const doctorDetails = {  licenseRegistrationNo, qualification, collegeName, courseYear }
-    await redisClient.set(`user:temp:${EmailID}`, JSON.stringify(doctorDetails), "EX", 600); // Expire in 10 minutes
+    const userData = { EmailID, Password, fullname, mobile_num, city, state, dateOfBirthWithTimestamp, gender, sex, UserType };
+    await redisClient.set(`user:temp:${EmailID}`, safeStringify(userData), "EX", 600);
+
+    if (UserType === "doctor") {
+      const doctorData = { 
+        licenseRegistrationNo, 
+        qualifications, 
+        collegeName, 
+        courseYear 
+      };
+      await redisClient.set(`doctor:temp:${EmailID}`, safeStringify(doctorData), "EX", 600);
+    }
+
     return { message: "OTP sent to email and mobile. Please verify." };
   },
   
-  // Verifies OTP and creates a new user in the database.
-
   async verifyAndCreateUser(email: string, mobile_num: string, emailOtp: string, mobileOtp: string) {
-    if (!mobileOtp|| mobileOtp.length !== 6 || mobileOtp===null ) {
-      throw new Error("Please Enter a valid OTP");
-    }
-    await otpService.verifyMobileOtp(mobile_num, mobileOtp);
-
-      // Validate email OTP
-  if (emailOtp && emailOtp.length !== 6) {
-    throw new Error("Please Enter a valid email OTP.");
-  }
-
-    // If email OTP is provided, verify it
-  if (email && emailOtp) {
-    await otpService.verifyEmailOtp(email, emailOtp);
-  }
-
-    // Retrieve temporary user data from Redis
-    const userDataJson = await redis.get(`user:temp:${email}`);
-
-    if (!userDataJson) {
-      throw new Error("User data expired. Please register again.");
-    }
-
-    const userData = JSON.parse(userDataJson);
-    const hashedPassword = await hashPassword(userData.Password);
-
-    // Create user in the database
-    const user = await prisma.userMaster.create({
-      data: {
-        EmailID: userData.EmailID,
-        Password: hashedPassword,
-        fullname: userData.fullname,
-        mobile_num: userData.mobile_num,
-        MBID: `MB${Math.random().toString().slice(2, 10)}`,
-        city: userData.city,
-        state: userData.state,
-        date_of_birth: userData.dateOfBirthWithTimestamp,
-        sex: userData.sex,
-        UserType: userData.UserType,
-      },
-    });
-if(userData.UserType==="doctor"){
-  const doctorDetailsJson = await redis.get(`user:temp:${email}`)||"";
-  const doctorData  = JSON.parse(doctorDetailsJson);
-}
-    const token = generateToken({ userId: user.ID.toString() });  // Convert BigInt to String
-
-    if (!token) {
-      throw new Error("Token generation failed.");
-    }
-
-    await redis.del(`user:temp:${email}`);
-
-    // Convert BigInt fields to strings before returning
-    return {
-      token,
-      user: {
-        ...user,
-        ID: user.ID.toString()  // Convert BigInt to String
+    try {
+      if (!mobileOtp || mobileOtp.length !== 6 || mobileOtp === null) {
+        throw new Error("Please Enter a valid OTP.");
       }
-    };
+      await otpService.verifyMobileOtp(mobile_num, mobileOtp);
+  
+      if (emailOtp && emailOtp.length !== 6) {
+        throw new Error("Please Enter a valid email OTP.");
+      }
+  
+      if (email && emailOtp) {
+        await otpService.verifyEmailOtp(email, emailOtp);
+      }
+  
+      const userDataJson = await redis.get(`user:temp:${email}`);
+      if (!userDataJson) {
+        throw new Error("User data expired. Please register again.");
+      }
+  
+      const userData = JSON.parse(userDataJson);
+      const hashedPassword = await hashPassword(userData.Password);
+  
+      const user = await prisma.userMaster.create({
+        data: {
+          EmailID: userData.EmailID,
+          Password: hashedPassword,
+          fullname: userData.fullname,
+          mobile_num: userData.mobile_num,
+          MBID: `MB${Math.random().toString().slice(2, 10)}`,
+          city: userData.city,
+          state: userData.state,
+          date_of_birth: userData.dateOfBirthWithTimestamp,
+          sex: userData.sex,
+          UserType: userData.UserType,
+        },
+      });
+  
+      if (userData.UserType?.toLowerCase() === "doctor") {
+        const doctorDataJson = await redis.get(`doctor:temp:${email}`);
+        if (!doctorDataJson) {
+          throw new Error("Doctor registration data expired. Please register again.");
+        }
+  
+        const doctorData = JSON.parse(doctorDataJson);
+        
+        // Convert user.ID to string before passing to doctorService
+        await doctorService.createDoctorDetails(
+          doctorData.licenseRegistrationNo,
+          doctorData.qualifications,
+          doctorData.collegeName,
+          doctorData.courseYear,
+          user.ID.toString() // Convert to string here
+        );
+  
+        await redis.del(`doctor:temp:${email}`);
+      }
+  
+      const token = generateToken({ userId: user.ID.toString() });
+      if (!token) {
+        throw new Error("Token generation failed.");
+      }
+  
+      await redis.del(`user:temp:${email}`);
+  
+      // Sanitize user data for response
+      const sanitizedUser = {
+        ...user,
+        ID: user.ID.toString(),
+        CreatedAt: user.CreatedAt?.toISOString() || null,
+        UpdatedOn: user.UpdatedOn?.toISOString() || null
+      };
+  
+      return {
+        token,
+        user: sanitizedUser
+      };
+    } catch (error) {
+      console.error("Error in verifyAndCreateUser:", error);
+      throw error;
+    }
   },
 
-
-  //Logs in a user, validates credentials, and returns a JWT token.
   async loginUser(
     { identifier, Password }: { identifier: string; Password: string },
     res: any
@@ -173,59 +207,52 @@ if(userData.UserType==="doctor"){
       throw new Error("Identifier (Email/Mobile) and Password are required.");
     }
   
-    // Simple mobile number normalization - only add +91 to 10-digit numbers
     const normalizeMobileNumber = (number: string): string => {
       const digits = number.replace(/\D/g, '');
       return digits.length === 10 ? `+91${digits}` : number;
     };
   
-    // Check if identifier is a 10-digit number
     const isMobile = /^\d{10}$/.test(identifier);
-  
     const whereClause = isMobile 
       ? { mobile_num: normalizeMobileNumber(identifier) }
       : { EmailID: identifier };
   
-    let user: UserMaster | null;
-  
-    // Fetch user directly from the database
-    user = await prisma.userMaster.findUnique({ where: whereClause });
+    const user = await prisma.userMaster.findUnique({ where: whereClause });
     if (!user) {
       throw new Error("User not found.");
     }
   
-    // Validate password
     const isValid = await comparePassword(Password, user.Password);
     if (!isValid) {
       throw new Error("Invalid credentials.");
     }
   
-    // Generate and set token
     const token = generateToken({ userId: user.ID.toString() });
     res.cookie("token", token, { httpOnly: true });
   
-    return { token, user };
+    return { 
+      token,
+      user: sanitizeUserForResponse(user)
+    };
   },
 
-  /**
-   * Retrieves a user by their ID, using Redis for caching.
-   */
   async getUserById(userId: string) {
     const cacheKey = `user:${userId}`;
     let user: UserMaster | null;
 
-    // Check Redis cache for user data
     const cachedUser = await redis.get(cacheKey);
     if (cachedUser) {
       user = restoreBigInt(JSON.parse(cachedUser)) as UserMaster;
     } else {
-      // Fetch user from the database if not cached
-      user = await prisma.userMaster.findUnique({ where: { ID: BigInt(userId) } });
+      user = await prisma.userMaster.findUnique({ 
+        where: { ID: BigInt(userId) } 
+      });
+      
       if (user) {
-        await redis.set(cacheKey, safeStringify(user), "EX", 3600); // Cache for 1 hour
+        await redis.set(cacheKey, safeStringify(user), "EX", 3600);
       }
     }
 
-    return user;
+    return sanitizeUserForResponse(user);
   },
 };
