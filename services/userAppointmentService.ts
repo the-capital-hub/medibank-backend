@@ -35,6 +35,19 @@ interface AppointmentResponse {
   };
 }
 
+interface AppointmentDateResponse {
+  date: string[];
+  user_appointments: {
+    ID: string;
+    appointmentId: string;
+    doctorImage: string | null;
+    doctorName: string;
+    chiefComplaint: string;
+    selectDate: string;
+    userType: string;
+  }[];
+}
+
 export const userAppointmentService = {
   convertBigIntToString(value: bigint | null | undefined): string | null {
     return value ? value.toString() : null;
@@ -317,6 +330,93 @@ export const userAppointmentService = {
       }
     };
   },
+
+  async getAppointmentsByDate(token: string): Promise<AppointmentDateResponse> {
+    if (!token) {
+      throw new Error("Token is required");
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded?.userId) {
+      throw new Error("Invalid token");
+    }
+
+    const userId = BigInt(decoded.userId);
+    const user = await prisma.userMaster.findUnique({
+      where: { ID: userId },
+      select: { UserType: true }
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const appointments = await prisma.userAppointment.findMany({
+      where: {
+        userId: userId,
+      },
+      select: {
+        ID: true,
+        appointmentId: true,
+        doctorImage: true,
+        doctorName: true,
+        chiefComplaint: true,
+        selectDate: true,
+      },
+      orderBy: {
+        selectDate: 'asc',
+      },
+    });
+
+    const userType = user.UserType ?? "UNKNOWN";
+    const uniqueDates = new Set<string>();
+    
+    const processedAppointments = appointments.map(appointment => {
+      let isoDate = "";
+      let formattedDate = appointment.selectDate;
+      
+      try {
+        if (appointment.selectDate) {
+          const date = new Date(appointment.selectDate);
+          
+          if (!isNaN(date.getTime())) {
+            // Create ISO date string with time set to midnight UTC
+            isoDate = new Date(
+              Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+            ).toISOString().split('.')[0] + 'Z';  // Format: 2025-02-21T00:00:00Z
+
+            // Create friendly formatted date
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = monthNames[date.getMonth()];
+            const day = date.getDate().toString().padStart(2, '0');
+            const year = date.getFullYear();
+            formattedDate = `${month}-${day},${year}`;
+
+            uniqueDates.add(isoDate);
+          }
+        }
+      } catch (error) {
+        console.error(`Error formatting date for appointment ${appointment.appointmentId}:`, error);
+      }
+
+      return {
+        ID: appointment.ID.toString(),
+        appointmentId: appointment.appointmentId,
+        doctorImage: appointment.doctorImage,
+        doctorName: appointment.doctorName,
+        chiefComplaint: appointment.chiefComplaint,
+        selectDate: formattedDate,  // Using formatted date (Feb-21,2025)
+        userType: userType
+      };
+    });
+
+    return {
+      date: Array.from(uniqueDates).sort(),  // Array of ISO dates
+      user_appointments: processedAppointments
+    };
+  },
+
 
   serializeAppointment(appointment: UserAppointment & { 
     user?: UserMaster | null, 

@@ -44,6 +44,7 @@ export const userAppointmentTypeDefs = gql`
     me: User!
     getUserAppointment(appointmentId: String!): AppointmentResponse!
     getAllUserAppointments: StandardResponse!
+    getAppointmentsByDate: StandardResponse!
   }
 
   type User {

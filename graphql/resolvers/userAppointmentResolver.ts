@@ -266,6 +266,23 @@ async function getAuthenticatedUser(req: Context['req']): Promise<string> {
   return userId;
 }
 
+interface AppointmentDateResponse {
+  status: boolean;
+  data: {
+    date: string[];
+    user_appointments: {
+      ID: string;
+      appointmentId: string;
+      doctorImage: string | null;
+      doctorName: string;
+      chiefComplaint: string;
+      selectDate: string;
+      userType: string;
+    }[];
+  } | null;
+  message: string;
+}
+
 
 // Main resolvers
 export const userAppointmentResolvers:any = {
@@ -376,6 +393,34 @@ export const userAppointmentResolvers:any = {
           status: false,
           data: null,
           message: error instanceof Error ? error.message : 'An error occurred'
+        };
+      }
+    },
+    getAppointmentsByDate: async (
+      _: unknown,
+      __: unknown,
+      { req }: Context
+    ): Promise<AppointmentDateResponse> => {
+      try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) {
+          throw new Error('Authorization token is required');
+        }
+
+        const appointmentsData = await userAppointmentService.getAppointmentsByDate(token);
+
+        return {
+          status: true,
+          data: appointmentsData,
+          message: "Appointments fetched successfully"
+        };
+
+      } catch (error) {
+        console.error("Error fetching appointments by date:", error);
+        return {
+          status: false,
+          data: null,
+          message: error instanceof Error ? error.message : 'An error occurred while fetching appointments'
         };
       }
     }
